@@ -99,6 +99,7 @@ class FirebaseRepository(BaseRepository):
                 membership_expiry=date.fromisoformat(data["membership_expiry"]),
                 is_active=bool(data.get("is_active", True)),
                 created_at=data.get("created_at"),
+                password_hash=data.get("password_hash"),
             )
         return await asyncio.to_thread(_get)
 
@@ -117,6 +118,7 @@ class FirebaseRepository(BaseRepository):
                             membership_expiry=date.fromisoformat(item["membership_expiry"]),
                             is_active=bool(item.get("is_active", True)),
                             created_at=item.get("created_at"),
+                            password_hash=item.get("password_hash"),
                         )
                     )
             return result
@@ -127,6 +129,11 @@ class FirebaseRepository(BaseRepository):
         member_to_save = member.model_copy(update={"created_at": now_str})
 
         def _save():
+            # If password_hash is not set on member_to_save, preserve existing password_hash if found
+            existing_ref = self._ref(f"members/{member_to_save.card_id}")
+            existing_data = existing_ref.get() or {}
+            pw_hash = member_to_save.password_hash or existing_data.get("password_hash")
+
             data = {
                 "card_id": str(member_to_save.card_id),
                 "name": member_to_save.name,
@@ -135,8 +142,9 @@ class FirebaseRepository(BaseRepository):
                 "membership_expiry": member_to_save.membership_expiry.isoformat(),
                 "is_active": member_to_save.is_active,
                 "created_at": member_to_save.created_at,
+                "password_hash": pw_hash,
             }
-            self._ref(f"members/{member_to_save.card_id}").set(data)
+            existing_ref.set(data)
 
         await asyncio.to_thread(_save)
         return member_to_save

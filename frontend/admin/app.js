@@ -1,15 +1,15 @@
 /**
- * GymTag Admin Panel App Controller
+ * GymTag Admin Panel App Controller (With Backend JWT Auth)
  */
 
-import { GymTagAPI } from '../shared/js/api.js?v=3.2';
-import { wsClient } from '../shared/js/websocket.js';
-import { formatTime, formatDate, formatDuration, escapeHtml, showToast } from '../shared/js/utils.js';
+import { GymTagAPI } from '../shared/js/api.js?v=4.0';
+import { wsClient } from '../shared/js/websocket.js?v=4.0';
+import { formatTime, formatDate, formatDuration, escapeHtml, showToast } from '../shared/js/utils.js?v=4.0';
 
-const ADMIN_PASSKEY = 'admin123';
 let isEditMode = false;
 let cachedMembers = [];
-
+let selectedLocker = null;
+let selectedAssignCardId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   setupAuth();
@@ -18,12 +18,14 @@ document.addEventListener('DOMContentLoaded', () => {
 function setupAuth() {
   const loginOverlay = document.getElementById('admin-login-overlay');
   const loginForm = document.getElementById('admin-login-form');
+  const usernameInput = document.getElementById('admin-username-input');
   const passkeyInput = document.getElementById('admin-passkey-input');
   const errorMsg = document.getElementById('login-error-msg');
   const btnLogout = document.getElementById('btn-admin-logout');
 
-  // Check existing session
-  if (sessionStorage.getItem('gymtag_admin_authed') === 'true') {
+  const token = sessionStorage.getItem('gymtag_admin_token');
+
+  if (token) {
     loginOverlay.classList.remove('active');
     initAdmin();
   } else {
@@ -31,18 +33,20 @@ function setupAuth() {
   }
 
   // Handle Login submission
-  loginForm.addEventListener('submit', (e) => {
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const inputVal = passkeyInput.value.trim();
+    const username = usernameInput ? usernameInput.value.trim() : 'admin';
+    const password = passkeyInput.value.trim();
 
-    if (inputVal === ADMIN_PASSKEY) {
-      sessionStorage.setItem('gymtag_admin_authed', 'true');
+    try {
+      const res = await GymTagAPI.adminLogin(username, password);
+      sessionStorage.setItem('gymtag_admin_token', res.token);
       loginOverlay.classList.remove('active');
       errorMsg.style.display = 'none';
       passkeyInput.value = '';
       showToast('Đăng nhập Quản trị Admin thành công!', 'success');
       initAdmin();
-    } else {
+    } catch (err) {
       errorMsg.style.display = 'block';
       passkeyInput.select();
     }
@@ -51,7 +55,8 @@ function setupAuth() {
   // Handle Logout
   if (btnLogout) {
     btnLogout.addEventListener('click', () => {
-      sessionStorage.removeItem('gymtag_admin_authed');
+      sessionStorage.removeItem('gymtag_admin_token');
+      wsClient.disconnect();
       loginOverlay.classList.add('active');
       showToast('Đã đăng xuất tài khoản Admin', 'success');
     });
@@ -164,7 +169,10 @@ function setupWebSocket() {
     renderOverviewEnvironment(data);
   });
 
-  wsClient.connect();
+  const token = sessionStorage.getItem('gymtag_admin_token');
+  if (token) {
+    wsClient.connect(`/ws/admin?token=${encodeURIComponent(token)}`);
+  }
 }
 
 /* ----------------------------------------------------
@@ -172,18 +180,24 @@ function setupWebSocket() {
  * ---------------------------------------------------- */
 async function loadOverviewData() {
   try {
-    const [occupancy, envLatest, lockers, members, logs] = await Promise.all([
-      GymTagAPI.getOccupancy(),
-      GymTagAPI.getLatestEnvironment().catch(() => null),
-      GymTagAPI.getLockers(),
-      GymTagAPI.getMembers(),
-      GymTagAPI.getCheckLogs(5)
+    const [statusData, lockers, members, logs] = await Promise.all([
+      GymTagAPI.getPublicStatus().catch(() => null),
+      GymTagAPI.getAdminLockers().catch(() => []),
+      GymTagAPI.getAdminMembers().catch(() => []),
+      GymTagAPI.getAdminActivityLogs(5).catch(() => [])
     ]);
 
-    document.getElementById('overview-occupancy').textContent = occupancy.current_occupancy;
+    if (statusData) {
+      document.getElementById('overview-occupancy').textContent = statusData.current_occupancy;
+      renderOverviewEnvironment({
+        temperature: statusData.temperature,
+        humidity: statusData.humidity,
+        fan_on: statusData.fan_on
+      });
+    }
+
     document.getElementById('overview-members').textContent = members.length;
 
-    renderOverviewEnvironment(envLatest);
     renderOverviewLockers(lockers);
     renderOverviewLogs(logs);
   } catch (e) {
@@ -196,7 +210,10 @@ function renderOverviewEnvironment(data) {
   const fanSubEl = document.getElementById('overview-fan');
   if (!data) return;
 
-  envValEl.textContent = `${data.temperature.toFixed(1)}°C / ${data.humidity.toFixed(1)}%`;
+  const tempStr = (data.temperature !== null && data.temperature !== undefined) ? `${data.temperature.toFixed(1)}°C` : '--°C';
+  const humStr = (data.humidity !== null && data.humidity !== undefined) ? `${data.humidity.toFixed(1)}%` : '--%';
+
+  envValEl.textContent = `${tempStr} / ${humStr}`;
   fanSubEl.textContent = `Quạt thông gió: ${data.fan_on ? 'ĐANG BẬT' : 'ĐANG TẮT'}`;
 }
 
@@ -243,7 +260,6 @@ function renderOverviewLockers(lockers) {
   });
 }
 
-
 function renderOverviewLogs(logs) {
   const tbody = document.getElementById('overview-logs-tbody');
   if (!tbody || !logs) return;
@@ -264,7 +280,7 @@ function renderOverviewLogs(logs) {
  * ---------------------------------------------------- */
 async function loadMembersData() {
   try {
-    const members = await GymTagAPI.getMembers();
+    const members = await GymTagAPI.getAdminMembers();
     renderMembersTable(members);
   } catch (e) {
     showToast('Lỗi khi tải danh sách thành viên', 'error');
@@ -296,6 +312,7 @@ function renderMembersTable(members) {
         <td>${statusBadge}</td>
         <td>
           <button class="btn btn-secondary btn-sm edit-member-btn" data-card="${escapeHtml(m.card_id)}">✏️ Sửa</button>
+          <button class="btn btn-secondary btn-sm reset-pw-btn" data-card="${escapeHtml(m.card_id)}" title="Reset mật khẩu về 123456">🔑 Reset MK</button>
           <button class="btn btn-danger btn-sm delete-member-btn" data-card="${escapeHtml(m.card_id)}">🗑️ Xoá</button>
         </td>
       </tr>
@@ -307,6 +324,20 @@ function renderMembersTable(members) {
     btn.addEventListener('click', () => {
       const cardId = btn.getAttribute('data-card');
       openEditModal(cardId);
+    });
+  });
+
+  document.querySelectorAll('.reset-pw-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cardId = btn.getAttribute('data-card');
+      if (confirm(`Bạn có muốn reset mật khẩu của thành viên '${cardId}' về mặc định: 123456 ?`)) {
+        try {
+          await GymTagAPI.resetAdminMemberPassword(cardId);
+          showToast(`Đã reset mật khẩu của ${cardId} về 123456`, 'success');
+        } catch (err) {
+          showToast(`Lỗi: ${err.message}`, 'error');
+        }
+      }
     });
   });
 
@@ -346,7 +377,7 @@ function setupModal() {
     const expiry = document.getElementById('m-expiry').value;
 
     try {
-      await GymTagAPI.saveMember({
+      await GymTagAPI.saveAdminMember({
         card_id: cardId,
         name: name,
         email: email || null,
@@ -363,9 +394,6 @@ function setupModal() {
     }
   });
 }
-
-let selectedLocker = null;
-let selectedAssignCardId = null;
 
 function renderMemberOptions(filterText = '') {
   const listEl = document.getElementById('assign-member-list');
@@ -399,7 +427,6 @@ function renderMemberOptions(filterText = '') {
     `;
   }).join('');
 
-  // Attach click listener for option selection
   listEl.querySelectorAll('.dropdown-item').forEach(itemEl => {
     itemEl.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -461,8 +488,6 @@ function setupLockerModal() {
     });
   }
 
-
-  // Close dropdown when clicking outside
   document.addEventListener('click', (e) => {
     if (wrapper && !wrapper.contains(e.target)) {
       wrapper.classList.remove('open');
@@ -525,7 +550,6 @@ function setupLockerModal() {
   });
 }
 
-
 function openLockerModal(locker) {
   selectedLocker = locker;
   selectedAssignCardId = null;
@@ -542,8 +566,7 @@ function openLockerModal(locker) {
   if (searchInput) searchInput.value = '';
   if (wrapper) wrapper.classList.remove('open');
 
-  // Load members for assign dropdown
-  GymTagAPI.getMembers()
+  GymTagAPI.getAdminMembers()
     .then(members => {
       cachedMembers = members || [];
       renderMemberOptions('');
@@ -552,10 +575,7 @@ function openLockerModal(locker) {
       console.error('Error fetching members:', err);
     });
 
-
-
   const status = locker.status || (locker.is_occupied ? 'occupied' : 'vacant');
-
   let statusBadgeHtml = '';
 
   if (status === 'broken') {
@@ -580,7 +600,6 @@ function openLockerModal(locker) {
     </div>
   `;
 
-  // UI state based on locker status
   if (status === 'broken') {
     groupForceAssign.style.display = 'none';
     btnForceRelease.style.display = 'none';
@@ -606,7 +625,7 @@ function openLockerModal(locker) {
 
 async function openEditModal(cardId) {
   try {
-    const member = await GymTagAPI.getMemberById(cardId);
+    const member = await GymTagAPI.getAdminMemberById(cardId);
     if (!member) return;
 
     isEditMode = true;
@@ -630,7 +649,7 @@ async function openEditModal(cardId) {
 async function confirmDeleteMember(cardId) {
   if (confirm(`Bạn có chắc chắn muốn xoá thành viên với Card ID '${cardId}'?`)) {
     try {
-      await GymTagAPI.deleteMember(cardId);
+      await GymTagAPI.deleteAdminMember(cardId);
       showToast(`Đã xoá thành viên ${cardId}`, 'success');
       loadMembersData();
     } catch (e) {
@@ -644,7 +663,7 @@ async function confirmDeleteMember(cardId) {
  * ---------------------------------------------------- */
 async function loadLockersData() {
   try {
-    const lockers = await GymTagAPI.getLockers();
+    const lockers = await GymTagAPI.getAdminLockers();
     renderAdminLockers(lockers);
   } catch (e) {
     showToast('Lỗi tải danh sách locker', 'error');
@@ -693,7 +712,6 @@ function renderAdminLockers(lockers) {
     `;
   }).join('');
 
-  // Attach click listener for opening admin modal on locker click
   container.querySelectorAll('.locker-card.admin-clickable').forEach(cardEl => {
     cardEl.addEventListener('click', () => {
       const lockerNum = parseInt(cardEl.getAttribute('data-locker'), 10);
@@ -705,14 +723,13 @@ function renderAdminLockers(lockers) {
   });
 }
 
-
 /* ----------------------------------------------------
  * TAB 4: ACCESS LOGS
  * ---------------------------------------------------- */
 async function loadLogsData() {
   const cardIdFilter = document.getElementById('filter-card-id').value.trim();
   try {
-    const logs = await GymTagAPI.getCheckLogs(100, cardIdFilter || null);
+    const logs = await GymTagAPI.getAdminActivityLogs(100, cardIdFilter || null);
     renderAdminLogs(logs);
   } catch (e) {
     showToast('Lỗi tải nhật ký ra vào', 'error');
@@ -753,7 +770,7 @@ function renderAdminLogs(logs) {
  * ---------------------------------------------------- */
 async function loadEnvironmentHistoryData() {
   try {
-    const history = await GymTagAPI.getEnvironmentHistory(50);
+    const history = await GymTagAPI.getAdminEnvironmentHistory(50);
     renderEnvironmentHistory(history);
   } catch (e) {
     showToast('Lỗi tải lịch sử môi trường', 'error');
@@ -772,7 +789,6 @@ function renderEnvironmentHistory(history) {
   tbody.innerHTML = history.map(item => {
     const isHighTemp = item.temperature >= 32.0;
     const isHighHum = item.humidity >= 80.0;
-    const isWarning = isHighTemp || isHighHum;
 
     return `
       <tr>

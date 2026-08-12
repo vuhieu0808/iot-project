@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import RedirectResponse
 
 from app.config import settings
 from app.repositories.firebase_repo import FirebaseRepository
@@ -19,13 +19,10 @@ from app.services.occupancy_service import OccupancyService
 from app.mqtt.client import MQTTClient
 from app.mqtt.handlers import MQTTMessageHandler
 from app.api import (
-    members_router,
-    lockers_router,
-    environment_router,
-    logs_router,
+    public_router,
+    user_router,
+    admin_router,
     ws_router,
-    ConnectionManager,
-    ws_manager,
 )
 
 # Configure standard Python logging
@@ -92,8 +89,8 @@ async def lifespan(app: FastAPI):
         access_service=access_service,
         locker_service=locker_service,
         environment_service=environment_service,
+        occupancy_service=occupancy_service,
         publish_func=mqtt_client.publish,
-        broadcast_ws_func=ws_manager.broadcast,
     )
 
     loop = asyncio.get_running_loop()
@@ -112,8 +109,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="GymTag Backend API",
-    description="Python Backend for RFID Gym Management & Monitoring System",
-    version="1.0.0",
+    description="Python Backend for RFID Gym Management & Monitoring System with Tiered Access Control",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -127,38 +124,54 @@ app.add_middleware(
 )
 
 # Register REST and WebSocket Routers
-app.include_router(members_router)
-app.include_router(lockers_router)
-app.include_router(environment_router)
-app.include_router(logs_router)
+app.include_router(public_router)
+app.include_router(user_router)
+app.include_router(admin_router)
 app.include_router(ws_router)
 
 # Serve Frontend static files seamlessly
 frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
 if os.path.exists(frontend_dir):
     shared_dir = os.path.join(frontend_dir, "shared")
+    public_dir = os.path.join(frontend_dir, "public")
     user_dir = os.path.join(frontend_dir, "user")
     admin_dir = os.path.join(frontend_dir, "admin")
 
-    if os.path.exists(shared_dir):
-        app.mount("/shared", StaticFiles(directory=shared_dir), name="shared")
-    if os.path.exists(user_dir):
-        app.mount("/user", StaticFiles(directory=user_dir, html=True), name="user")
-    if os.path.exists(admin_dir):
-        app.mount("/admin", StaticFiles(directory=admin_dir, html=True), name="admin")
-    
+    os.makedirs(shared_dir, exist_ok=True)
+    os.makedirs(public_dir, exist_ok=True)
+    os.makedirs(user_dir, exist_ok=True)
+    os.makedirs(admin_dir, exist_ok=True)
+
+    app.mount("/shared", StaticFiles(directory=shared_dir), name="shared")
+    app.mount("/public", StaticFiles(directory=public_dir, html=True), name="public")
+    app.mount("/user", StaticFiles(directory=user_dir, html=True), name="user")
+    app.mount("/admin", StaticFiles(directory=admin_dir, html=True), name="admin")
     app.mount("/frontend", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 static_dir = os.path.join(os.path.dirname(__file__), "static")
-if not os.path.exists(static_dir):
-    os.makedirs(static_dir, exist_ok=True)
-
+os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/", include_in_schema=False)
 async def serve_root():
-    """Redirect root '/' to User Dashboard at '/user/'."""
-    from fastapi.responses import RedirectResponse
+    """Redirect root '/' to Public Gym Dashboard at '/public/'."""
+    return RedirectResponse(url="/public/")
+
+
+@app.get("/public", include_in_schema=False)
+async def redirect_public():
+    """Redirect '/public' to '/public/'."""
+    return RedirectResponse(url="/public/")
+
+
+@app.get("/user", include_in_schema=False)
+async def redirect_user():
+    """Redirect '/user' to '/user/'."""
     return RedirectResponse(url="/user/")
 
+
+@app.get("/admin", include_in_schema=False)
+async def redirect_admin():
+    """Redirect '/admin' to '/admin/'."""
+    return RedirectResponse(url="/admin/")

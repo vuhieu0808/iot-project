@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GymTag - Bảng Giám Sát Phòng Gym Công Khai</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="../shared/css/variables.css?v=4.0">
+  <link rel="stylesheet" href="../shared/css/base.css?v=4.0">
+  <link rel="stylesheet" href="../shared/css/components.css?v=4.0">
+  <link rel="stylesheet" href="./style.css?v=4.0">
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-logo">🏷️</div>
+        <div class="brand-text">
+          <h1>GymTag</h1>
+          <span class="brand-subtitle">Public Monitor</span>
+        </div>
+      </div>
+      
+      <div class="header-actions">
+        <a href="../user/index.html" class="btn btn-secondary btn-sm">
+          <span>👤 Tra Cứu Cá Nhân</span>
+        </a>
+        <a href="../admin/index.html" class="btn btn-primary btn-sm">
+          <span>🔒 Admin</span>
+        </a>
+        <div id="ws-indicator" class="ws-indicator disconnected">
+          <span class="ws-dot"></span>
+          <span id="ws-status-text">Đang kết nối...</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="main-layout">
+    
+    <!-- Top Telemetry Cards -->
+    <section class="telemetry-grid">
+      <!-- Occupancy Card -->
+      <div class="glass-card stat-widget">
+        <div class="stat-icon-wrapper blue">🏋️</div>
+        <div class="stat-content">
+          <span class="stat-label">Số người trong gym</span>
+          <div id="val-occupancy" class="stat-value">--</div>
+          <span class="stat-subtext">Đang tập luyện tại phòng</span>
+        </div>
+      </div>
+
+      <!-- Temperature Card -->
+      <div class="glass-card stat-widget">
+        <div class="stat-icon-wrapper cyan">🌡️</div>
+        <div class="stat-content">
+          <span class="stat-label">Nhiệt độ phòng</span>
+          <div id="val-temp" class="stat-value">-- °C</div>
+          <span id="sub-temp" class="stat-subtext">Cảm biến DHT22</span>
+        </div>
+      </div>
+
+      <!-- Humidity Card -->
+      <div class="glass-card stat-widget">
+        <div class="stat-icon-wrapper purple">💧</div>
+        <div class="stat-content">
+          <span class="stat-label">Độ ẩm tương đối</span>
+          <div id="val-humidity" class="stat-value">-- %</div>
+          <span id="sub-humidity" class="stat-subtext">Điều kiện không khí</span>
+        </div>
+      </div>
+
+      <!-- Fan Status Card -->
+      <div class="glass-card stat-widget">
+        <div class="stat-icon-wrapper amber" id="fan-icon-bg">💨</div>
+        <div class="stat-content">
+          <span class="stat-label">Quạt thông gió</span>
+          <div id="val-fan" class="stat-value" style="font-size: 1.5rem;">ĐANG TẮT</div>
+          <span id="sub-fan" class="stat-subtext">Tự động kích hoạt khi >32°C</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Locker Status Grid Section -->
+    <section class="glass-card locker-section">
+      <div class="section-header">
+        <div>
+          <h2>🔐 Sơ Đồ Locker (Trạng Thái Trống / Đang Dùng)</h2>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">Sơ đồ trạng thái tủ chứa đồ theo thời gian thực (Ẩn danh tính cá nhân)</p>
+        </div>
+        <span id="locker-count-summary" class="badge badge-info">-- / -- Trống</span>
+      </div>
+      
+      <div id="locker-grid" class="locker-grid-container">
+        <!-- Dynamically Populated -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- JS Scripts -->
+  <script type="module" src="./app.js?v=4.0"></script>
+</body>
+</html>

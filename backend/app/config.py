@@ -27,6 +27,10 @@ class Settings(BaseSettings):
 
     LOCKER_COUNT: int = 10
 
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "admin123"
+    JWT_SECRET: str = "gymtag-secret-key-2026"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

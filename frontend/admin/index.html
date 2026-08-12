@@ -49,7 +49,7 @@
       </nav>
 
       <div class="sidebar-footer">
-        <a href="../user/index.html" class="btn btn-secondary btn-sm style-full">
+        <a href="../public/index.html" class="btn btn-secondary btn-sm style-full">
           <span>👁️ Xem Trang Public</span>
         </a>
         <button id="btn-admin-logout" class="btn btn-danger btn-sm style-full" style="margin-top: 0.5rem;">
@@ -342,19 +342,22 @@
       </div>
       <form id="admin-login-form" style="padding: 1.5rem;">
         <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
-          Vui lòng nhập Mã Khóa Quản Trị (Passkey) để truy cập hệ thống GymTag Admin.
+          Vui lòng nhập Tên đăng nhập và Mật khẩu để truy cập hệ thống Admin.
         </p>
+        <div class="form-group" style="margin-bottom: 0.75rem;">
+          <input type="text" id="admin-username-input" class="form-input" placeholder="Tên đăng nhập (mặc định: admin)..." value="admin" required style="text-align: center;">
+        </div>
         <div class="form-group">
-          <input type="password" id="admin-passkey-input" class="form-input" placeholder="Mã khóa Admin..." required style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
+          <input type="password" id="admin-passkey-input" class="form-input" placeholder="Mật khẩu Admin..." required style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
         </div>
         <div id="login-error-msg" style="color: var(--status-danger); font-size: 0.85rem; margin-top: 0.5rem; display: none;">
-          ⚠️ Mã khóa Admin không chính xác!
+          ⚠️ Tên đăng nhập hoặc mật khẩu Admin không chính xác!
         </div>
         <div class="modal-footer" style="justify-content: center; margin-top: 1.25rem;">
           <button type="submit" class="btn btn-primary style-full">🔓 Đăng Nhập</button>
         </div>
         <div style="margin-top: 1rem;">
-          <a href="../user/index.html" style="font-size: 0.8rem; color: var(--text-muted);">← Quay lại Trang Public</a>
+          <a href="../public/index.html" style="font-size: 0.8rem; color: var(--text-muted);">← Quay lại Trang Public</a>
         </div>
       </form>
     </div>

@@ -8,6 +8,8 @@ from app.mqtt.topics import Topics
 from app.services.access_service import AccessService
 from app.services.locker_service import LockerService
 from app.services.environment_service import EnvironmentService
+from app.services.occupancy_service import OccupancyService
+from app.api.websocket import ws_manager
 
 logger = logging.getLogger(__name__)
 
@@ -20,14 +22,14 @@ class MQTTMessageHandler:
         access_service: AccessService,
         locker_service: LockerService,
         environment_service: EnvironmentService,
+        occupancy_service: OccupancyService,
         publish_func: Callable[[str, str], None],
-        broadcast_ws_func: Optional[Callable[[Dict[str, Any]], None]] = None,
     ):
         self.access_service = access_service
         self.locker_service = locker_service
         self.environment_service = environment_service
+        self.occupancy_service = occupancy_service
         self.publish = publish_func
-        self.broadcast_ws = broadcast_ws_func
 
     async def handle_message(self, topic: str, payload_str: str) -> None:
         """Route topic message to correct handler."""
@@ -61,12 +63,20 @@ class MQTTMessageHandler:
         self.publish(Topics.DOOR_CHECKIN_RESPONSE, response_payload)
         logger.info(f"Published checkin response to ESP32: {response_payload}")
 
-        # Broadcast update to WebSocket clients
-        if self.broadcast_ws:
-            await self.broadcast_ws({
-                "type": "checkin_event",
-                "data": result
-            })
+        # Broadcast detailed check-in activity event to authenticated ADMIN WS clients
+        await ws_manager.broadcast_admin({
+            "type": "checkin_event",
+            "data": result
+        })
+
+        # Broadcast updated occupancy count to PUBLIC WS clients
+        occupancy_count = await self.occupancy_service.get_current_occupancy()
+        await ws_manager.broadcast_public({
+            "type": "occupancy_update",
+            "data": {
+                "current_occupancy": occupancy_count
+            }
+        })
 
     async def _handle_locker_request(self, payload: Dict[str, Any]) -> None:
         """Process locker card scan request."""
@@ -82,16 +92,30 @@ class MQTTMessageHandler:
         self.publish(Topics.LOCKER_RESPONSE, response_payload)
         logger.info(f"Published locker response to ESP32: {response_payload}")
 
-        # Broadcast update to WebSocket clients
-        if self.broadcast_ws:
-            all_lockers = await self.locker_service.get_all_lockers()
-            await self.broadcast_ws({
-                "type": "locker_event",
-                "data": {
-                    "event": result,
-                    "lockers": [l.model_dump() for l in all_lockers]
-                }
-            })
+        # Broadcast full detailed locker event to ADMIN WS clients
+        all_lockers = await self.locker_service.get_all_lockers()
+        await ws_manager.broadcast_admin({
+            "type": "locker_event",
+            "data": {
+                "event": result,
+                "lockers": [l.model_dump() for l in all_lockers]
+            }
+        })
+
+        # Broadcast privacy-safe locker status update to PUBLIC WS clients (omitting card_id)
+        await ws_manager.broadcast_public({
+            "type": "locker_status_update",
+            "data": {
+                "lockers": [
+                    {
+                        "locker_number": l.locker_number,
+                        "status": l.status.value,
+                        "is_occupied": l.is_occupied,
+                    }
+                    for l in all_lockers
+                ]
+            }
+        })
 
     async def _handle_environment_reading(self, payload: Dict[str, Any]) -> None:
         """Process temperature and humidity sensor payload."""
@@ -120,10 +144,9 @@ class MQTTMessageHandler:
             self.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
             logger.info(f"Published fan control to ESP32: {fan_payload}")
 
-        # Broadcast update to WebSocket clients
-        if self.broadcast_ws:
-            reading: EnvironmentReading = result["reading"]
-            await self.broadcast_ws({
-                "type": "environment_update",
-                "data": reading.model_dump()
-            })
+        # Broadcast environment telemetry to ALL WebSocket clients (Public & Admin)
+        reading = result["reading"]
+        await ws_manager.broadcast({
+            "type": "environment_update",
+            "data": reading.model_dump()
+        })

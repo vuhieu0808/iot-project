@@ -1,0 +1,238 @@
+"""Admin management REST API routes requiring JWT authentication."""
+
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel, Field
+
+from app.config import settings
+from app.api.auth import create_admin_token, require_admin
+from app.models.member import Member, MemberCreate
+from app.models.locker import Locker, LockerStatus
+from app.models.check_log import CheckLog
+from app.models.environment import EnvironmentReading
+from app.api.websocket import ws_manager
+
+router = APIRouter(prefix="/api/admin", tags=["Admin Management"])
+
+
+class AdminLoginRequest(BaseModel):
+    """Admin login credentials request model."""
+    username: str = Field(..., description="Admin username")
+    password: str = Field(..., description="Admin password")
+
+
+class AdminLoginResponse(BaseModel):
+    """Admin login authentication response containing JWT token."""
+    token: str = Field(..., description="JWT Bearer authorization token")
+    username: str = Field(..., description="Authenticated username")
+
+
+class ForceAssignRequest(BaseModel):
+    """Admin force assign locker request model."""
+    card_id: str = Field(..., description="RFID Card ID to assign to locker")
+
+
+class LockerStatusRequest(BaseModel):
+    """Admin status change request model."""
+    status: LockerStatus = Field(..., description="New status for locker")
+
+
+async def _broadcast_admin_locker_update(locker_service):
+    """Broadcast updated full lockers to admin WS clients & status to public WS clients."""
+    all_lockers = await locker_service.get_all_lockers()
+    await ws_manager.broadcast_admin({
+        "type": "locker_event",
+        "data": {
+            "lockers": [l.model_dump() for l in all_lockers]
+        }
+    })
+    await ws_manager.broadcast_public({
+        "type": "locker_status_update",
+        "data": {
+            "lockers": [
+                {
+                    "locker_number": l.locker_number,
+                    "status": l.status.value,
+                    "is_occupied": l.is_occupied,
+                }
+                for l in all_lockers
+            ]
+        }
+    })
+
+
+@router.post("/login", response_model=AdminLoginResponse)
+async def admin_login(body: AdminLoginRequest):
+    """Authenticate admin credentials and return JWT bearer token."""
+    if body.username == settings.ADMIN_USERNAME and body.password == settings.ADMIN_PASSWORD:
+        token = create_admin_token(body.username)
+        return AdminLoginResponse(token=token, username=body.username)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid admin username or password",
+    )
+
+
+@router.get("/activity", response_model=List[CheckLog])
+async def get_admin_activity_logs(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500, description="Max history records"),
+    card_id: Optional[str] = Query(None, description="Optional card_id filter"),
+    _: str = Depends(require_admin),
+):
+    """Retrieve complete real-time RFID check-in/out activity logs (Admin Auth Required)."""
+    repo = request.app.state.repository
+    return await repo.get_check_logs(limit=limit, card_id=card_id)
+
+
+@router.get("/lockers", response_model=List[Locker])
+async def get_admin_lockers(
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Retrieve detailed state of all lockers including assigned card_ids (Admin Auth Required)."""
+    locker_service = request.app.state.locker_service
+    return await locker_service.get_all_lockers()
+
+
+@router.post("/lockers/{locker_number}/force-release", response_model=Locker)
+async def force_release_locker(
+    locker_number: int,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Admin force release/unlock a locker (Admin Auth Required)."""
+    locker_service = request.app.state.locker_service
+    try:
+        updated = await locker_service.force_release_locker(locker_number)
+        await _broadcast_admin_locker_update(locker_service)
+        return updated
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/lockers/{locker_number}/force-assign", response_model=Locker)
+async def force_assign_locker(
+    locker_number: int,
+    body: ForceAssignRequest,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Admin force assign a specific card_id to a locker (Admin Auth Required)."""
+    locker_service = request.app.state.locker_service
+    try:
+        updated = await locker_service.force_assign_locker(locker_number, body.card_id)
+        await _broadcast_admin_locker_update(locker_service)
+        return updated
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/lockers/{locker_number}/status", response_model=Locker)
+async def set_locker_status(
+    locker_number: int,
+    body: LockerStatusRequest,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Admin update locker status: vacant, occupied, or broken (Admin Auth Required)."""
+    locker_service = request.app.state.locker_service
+    try:
+        updated = await locker_service.set_locker_status(locker_number, body.status)
+        await _broadcast_admin_locker_update(locker_service)
+        return updated
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/members", response_model=List[Member])
+async def get_admin_members(
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Retrieve full list of registered gym members (Admin Auth Required)."""
+    repo = request.app.state.repository
+    return await repo.get_all_members()
+
+
+@router.post("/members", response_model=Member, status_code=status.HTTP_201_CREATED)
+async def save_admin_member(
+    member_in: MemberCreate,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Create or update a member record (Admin Auth Required)."""
+    repo = request.app.state.repository
+    from app.api.auth import hash_password
+
+    existing = await repo.get_member(member_in.card_id)
+    pw_hash = None
+    if member_in.password:
+        pw_hash = hash_password(member_in.password)
+    elif not existing:
+        # Default initial password for new members: "123456"
+        pw_hash = hash_password("123456")
+    else:
+        pw_hash = existing.password_hash
+
+    member_dict = member_in.model_dump(exclude={"password"})
+    member = Member(**member_dict, password_hash=pw_hash)
+    return await repo.save_member(member)
+
+
+@router.post("/members/{card_id}/reset-password")
+async def reset_admin_member_password(
+    card_id: str,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Reset a member's password to default '123456' (Admin Auth Required)."""
+    repo = request.app.state.repository
+    from app.api.auth import hash_password
+    member = await repo.get_member(card_id)
+    if not member:
+        raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
+
+    default_hash = hash_password("123456")
+    updated = member.model_copy(update={"password_hash": default_hash})
+    await repo.save_member(updated)
+    return {"message": f"Đã reset mật khẩu của thành viên '{card_id}' về mặc định: 123456"}
+
+
+@router.get("/members/{card_id}", response_model=Member)
+async def get_admin_member_by_id(
+    card_id: str,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Retrieve details for a specific member by RFID card ID (Admin Auth Required)."""
+    repo = request.app.state.repository
+    member = await repo.get_member(card_id)
+    if not member:
+        raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
+    return member
+
+
+@router.delete("/members/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_admin_member(
+    card_id: str,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Delete a member record (Admin Auth Required)."""
+    repo = request.app.state.repository
+    deleted = await repo.delete_member(card_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
+
+
+@router.get("/environment/history", response_model=List[EnvironmentReading])
+async def get_admin_environment_history(
+    request: Request,
+    limit: int = Query(50, ge=1, le=500, description="Max history records"),
+    _: str = Depends(require_admin),
+):
+    """Get detailed historical environment sensor readings (Admin Auth Required)."""
+    env_service = request.app.state.environment_service
+    return await env_service.get_history(limit=limit)

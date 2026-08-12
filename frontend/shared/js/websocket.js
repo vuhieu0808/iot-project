@@ -1,5 +1,5 @@
 /**
- * GymTag - WebSocket Realtime Client
+ * GymTag - WebSocket Realtime Client supporting tiered channels (/ws/public, /ws/admin)
  */
 
 import { API_BASE_URL } from './api.js';
@@ -11,18 +11,27 @@ export class GymTagWebSocket {
     this.statusCallbacks = [];
     this.reconnectAttempts = 0;
     this.maxReconnectDelay = 10000;
+    this.currentPath = '/ws/public';
   }
 
-  getWsUrl() {
+  getWsUrl(path = '/ws/public') {
     const httpUrl = new URL(API_BASE_URL);
     const wsProtocol = httpUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${wsProtocol}//${httpUrl.host}/ws`;
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return `${wsProtocol}//${httpUrl.host}${cleanPath}`;
   }
 
-  connect() {
-    const url = this.getWsUrl();
+  connect(path = '/ws/public') {
+    this.currentPath = path;
+    const url = this.getWsUrl(path);
     console.log(`Connecting WebSocket to ${url}...`);
     this.notifyStatus('connecting');
+
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch (e) {}
+    }
 
     try {
       this.ws = new WebSocket(url);
@@ -57,11 +66,22 @@ export class GymTagWebSocket {
     }
   }
 
+  disconnect() {
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch (e) {}
+      this.ws = null;
+    }
+  }
+
   scheduleReconnect() {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), this.maxReconnectDelay);
     console.log(`Scheduling WS reconnect in ${Math.round(delay)}ms...`);
-    setTimeout(() => this.connect(), delay);
+    setTimeout(() => {
+      if (this.currentPath) this.connect(this.currentPath);
+    }, delay);
   }
 
   on(eventType, callback) {

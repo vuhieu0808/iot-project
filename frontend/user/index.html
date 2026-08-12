@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GymTag - Bảng Giám Sát Phòng Gym</title>
+  <title>GymTag - Portal Đăng Nhập Thành Viên</title>
   
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,109 +11,173 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="../shared/css/variables.css?v=3.2">
-  <link rel="stylesheet" href="../shared/css/base.css?v=3.2">
-  <link rel="stylesheet" href="../shared/css/components.css?v=3.2">
-  <link rel="stylesheet" href="./style.css?v=3.2">
+  <link rel="stylesheet" href="../shared/css/variables.css?v=5.0">
+  <link rel="stylesheet" href="../shared/css/base.css?v=5.0">
+  <link rel="stylesheet" href="../shared/css/components.css?v=5.0">
+  <link rel="stylesheet" href="./style.css?v=5.0">
 </head>
 <body>
 
-  <!-- Top Navigation Header -->
+  <!-- Top Header Navigation -->
   <header class="app-header">
     <div class="header-container">
       <div class="brand">
         <div class="brand-logo">🏷️</div>
         <div class="brand-text">
           <h1>GymTag</h1>
-          <span class="brand-subtitle">Real-time Monitor</span>
+          <span class="brand-subtitle">Portal Thành Viên</span>
         </div>
       </div>
+      
       <div class="header-actions">
-        <div id="ws-indicator" class="ws-indicator disconnected">
-          <span class="ws-dot"></span>
-          <span id="ws-status-text">Đang kết nối...</span>
-        </div>
+        <a href="../public/index.html" class="btn btn-secondary btn-sm">
+          <span>🌐 Trang Công Khai</span>
+        </a>
+        <button id="btn-change-password" class="btn btn-secondary btn-sm" style="display: none;">
+          <span>🔑 Đổi Mật Khẩu</span>
+        </button>
+        <button id="btn-user-logout" class="btn btn-danger btn-sm" style="display: none;">
+          <span>🚪 Đăng Xuất</span>
+        </button>
+        <a href="../admin/index.html" class="btn btn-primary btn-sm">
+          <span>🔒 Admin</span>
+        </a>
       </div>
     </div>
   </header>
 
-  <!-- Main Content Layout -->
+  <!-- Main User Portal Layout -->
   <main class="main-layout">
     
-    <!-- Top Telemetry Cards -->
-    <section class="telemetry-grid">
-      <!-- Occupancy Card -->
-      <div class="glass-card stat-widget">
-        <div class="stat-icon-wrapper blue">🏋️</div>
-        <div class="stat-content">
-          <span class="stat-label">Số người trong gym</span>
-          <div id="val-occupancy" class="stat-value">--</div>
-          <span class="stat-subtext">Thành viên đang tập luyện</span>
-        </div>
+    <!-- User Login Card Section (Shown when logged out) -->
+    <section id="user-login-section" class="glass-card login-card">
+      <div class="login-header">
+        <h2>🔒 Đăng Nhập Tài Khoản Thành Viên</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.3rem;">
+          Nhập Mã Thẻ RFID (Card ID) và Mật khẩu để truy cập thông tin cá nhân.
+        </p>
       </div>
 
-      <!-- Temperature Card -->
-      <div class="glass-card stat-widget">
-        <div class="stat-icon-wrapper cyan">🌡️</div>
-        <div class="stat-content">
-          <span class="stat-label">Nhiệt độ phòng</span>
-          <div id="val-temp" class="stat-value">-- °C</div>
-          <span id="sub-temp" class="stat-subtext">Cảm biến DHT22</span>
+      <form id="user-login-form" class="login-form">
+        <div class="form-group">
+          <label class="form-label" for="user-card-id-input">Mã Thẻ RFID (Card ID) *</label>
+          <input 
+            type="text" 
+            id="user-card-id-input" 
+            class="form-input" 
+            placeholder="VD: CARD001..." 
+            required
+            autocomplete="off"
+          >
         </div>
-      </div>
 
-      <!-- Humidity Card -->
-      <div class="glass-card stat-widget">
-        <div class="stat-icon-wrapper purple">💧</div>
-        <div class="stat-content">
-          <span class="stat-label">Độ ẩm tương đối</span>
-          <div id="val-humidity" class="stat-value">-- %</div>
-          <span id="sub-humidity" class="stat-subtext">Điều kiện không khí</span>
+        <div class="form-group">
+          <label class="form-label" for="user-password-input">Mật Khẩu *</label>
+          <input 
+            type="password" 
+            id="user-password-input" 
+            class="form-input" 
+            placeholder="Mật khẩu (Mặc định ban đầu: 123456)..." 
+            required
+          >
         </div>
-      </div>
 
-      <!-- Fan Status Card -->
-      <div class="glass-card stat-widget">
-        <div class="stat-icon-wrapper amber" id="fan-icon-bg">💨</div>
-        <div class="stat-content">
-          <span class="stat-label">Quạt thông gió</span>
-          <div id="val-fan" class="stat-value" style="font-size: 1.5rem;">ĐANG TẮT</div>
-          <span id="sub-fan" class="stat-subtext">Tự động kích hoạt khi >32°C</span>
+        <div id="login-error-msg" class="error-msg" style="display: none;">
+          ⚠️ Mã thẻ hoặc mật khẩu không chính xác!
         </div>
-      </div>
+
+        <button type="submit" class="btn btn-primary style-full" style="margin-top: 1rem;">
+          <span>🔓 Đăng Nhập Thành Viên</span>
+        </button>
+
+        <p style="font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 1rem;">
+          💡 Mật khẩu mặc định ban đầu là <strong>123456</strong>. Vui lòng đổi mật khẩu sau khi đăng nhập.
+        </p>
+      </form>
     </section>
 
-    <!-- Mid Section: Locker Status Grid & Access Stream -->
-    <div class="content-split">
+    <!-- Logged In User Dashboard (Shown after login) -->
+    <div id="user-dashboard-container" class="dashboard-container" style="display: none;">
       
-      <!-- Locker Status Map -->
-      <section class="glass-card locker-section">
-        <div class="section-header">
-          <h2>🔐 Sơ Đồ Locker</h2>
-          <span id="locker-count-summary" class="badge badge-info">-- / -- Trống</span>
+      <!-- Welcome Banner -->
+      <div class="glass-card welcome-banner" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">
+            Xin chào, <span id="banner-user-name" style="color: var(--accent-primary);">--</span> 👋
+          </h2>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">
+            Chào mừng bạn trở lại với hệ thống quản lý phòng gym thông minh GymTag.
+          </p>
         </div>
-        <div id="locker-grid" class="locker-grid-container">
-          <!-- Dynamically Populated -->
+        <button id="btn-quick-change-pw" class="btn btn-secondary btn-sm">
+          <span>🔑 Đổi Mật Khẩu</span>
+        </button>
+      </div>
+
+      <!-- Top Member Summary Widgets -->
+      <section class="telemetry-grid">
+        
+        <!-- Profile Card -->
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper blue">👤</div>
+          <div class="stat-content">
+            <span class="stat-label">Họ và Tên</span>
+            <div id="m-name" class="stat-value" style="font-size: 1.4rem;">--</div>
+            <span id="m-card-badge" class="stat-subtext">Card ID: --</span>
+          </div>
         </div>
+
+        <!-- Membership Expiry Card -->
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper amber">📅</div>
+          <div class="stat-content">
+            <span class="stat-label">Hạn Thành Viên</span>
+            <div id="m-expiry" class="stat-value" style="font-size: 1.4rem;">--</div>
+            <span id="m-status-badge" class="badge">--</span>
+          </div>
+        </div>
+
+        <!-- Current Assigned Locker Card -->
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper cyan">🔐</div>
+          <div class="stat-content">
+            <span class="stat-label">Tủ Locker Đang Giữ</span>
+            <div id="m-locker" class="stat-value" style="font-size: 1.4rem;">Chưa dùng</div>
+            <span id="m-locker-time" class="stat-subtext">--</span>
+          </div>
+        </div>
+
+        <!-- Total Gym Hours Card -->
+        <div class="glass-card stat-widget">
+          <div class="stat-icon-wrapper purple">⏱️</div>
+          <div class="stat-content">
+            <span class="stat-label">Tổng Thời Gian Tập</span>
+            <div id="m-stats-hours" class="stat-value" style="font-size: 1.4rem;">0 phút</div>
+            <span id="m-stats-sessions" class="stat-subtext">0 buổi tập</span>
+          </div>
+        </div>
+
       </section>
 
-      <!-- Realtime Activity Log Feed -->
-      <section class="glass-card logs-section">
+      <!-- Personal History Log Table -->
+      <section class="glass-card logs-section" style="margin-top: 1.5rem;">
         <div class="section-header">
-          <h2>📋 Hoạt Động Quẹt Thẻ Realtime</h2>
-          <span class="badge badge-info">Cập nhật tức thì</span>
+          <h2>📋 Nhật Ký Ra Vào Cá Nhân</h2>
+          <span id="user-logs-badge" class="badge badge-info">0 lượt</span>
         </div>
+        
         <div class="table-responsive">
           <table class="custom-table">
             <thead>
               <tr>
-                <th>Thời gian</th>
-                <th>Sự kiện</th>
-                <th>Kết quả</th>
-                <th>Thời gian tập</th>
+                <th>Thời gian Quẹt Thẻ</th>
+                <th>Thao tác</th>
+                <th>Kết quả Scan</th>
+                <th>Thời gian tập lượt này</th>
+                <th>Ghi chú</th>
               </tr>
             </thead>
-            <tbody id="logs-tbody">
+            <tbody id="user-logs-tbody">
               <!-- Dynamically Populated -->
             </tbody>
           </table>
@@ -124,7 +188,43 @@
 
   </main>
 
+  <!-- Change Password Modal Overlay -->
+  <div id="change-pw-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>🔑 Đổi Mật Khẩu Cá Nhân</h3>
+        <button id="btn-close-pw-modal" class="modal-close-btn">&times;</button>
+      </div>
+      
+      <form id="change-pw-form" style="padding: 1.5rem;">
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label" for="old-pw-input">Mật Khẩu Hiện Tại *</label>
+          <input type="password" id="old-pw-input" class="form-input" placeholder="Nhập mật khẩu hiện tại..." required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label class="form-label" for="new-pw-input">Mật Khẩu Mới * (Tối thiểu 4 ký tự)</label>
+          <input type="password" id="new-pw-input" class="form-input" placeholder="Nhập mật khẩu mới..." required minlength="4">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="confirm-pw-input">Xác Nhận Mật Khẩu Mới *</label>
+          <input type="password" id="confirm-pw-input" class="form-input" placeholder="Nhập lại mật khẩu mới..." required minlength="4">
+        </div>
+
+        <div id="change-pw-error-msg" class="error-msg" style="display: none; margin-bottom: 1rem;">
+          ⚠️ Mật khẩu xác nhận không khớp!
+        </div>
+
+        <div class="modal-footer" style="justify-content: flex-end; gap: 0.75rem;">
+          <button type="button" id="btn-cancel-pw-modal" class="btn btn-secondary">Hủy</button>
+          <button type="submit" class="btn btn-primary">💾 Lưu Mật Khẩu Mới</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- JS Scripts -->
-  <script type="module" src="./app.js?v=3.2"></script>
+  <script type="module" src="./app.js?v=5.0"></script>
 </body>
 </html>

@@ -21,8 +21,10 @@ class MemberCreate(BaseModel):
     phone: Optional[str] = Field(None, description="Phone number")
     membership_expiry: date = Field(..., description="Membership expiration date")
     is_active: bool = Field(True, description="Whether account is active")
+    password: Optional[str] = Field(None, description="Initial plain password for user (optional, default 123456)")
 
 
 class Member(MemberCreate):
     """Member model stored in system database."""
     created_at: Optional[str] = Field(None, description="ISO timestamp when registered")
+    password_hash: Optional[str] = Field(None, description="Hashed password string")
