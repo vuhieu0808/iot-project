@@ -2,15 +2,14 @@
 
 import pytest
 import pytest_asyncio
-from app.repositories.sqlite_repo import SQLiteRepository
+from tests.in_memory_repo import InMemoryRepository
 from app.services.locker_service import LockerService
 
 
 @pytest_asyncio.fixture
-async def test_repo(tmp_path):
-    """Provide clean temporary SQLite repository with 2 lockers for testing."""
-    db_file = str(tmp_path / "test_lockers.db")
-    repo = SQLiteRepository(db_path=db_file, default_locker_count=2)
+async def test_repo():
+    """Provide clean InMemoryRepository with 2 lockers for testing."""
+    repo = InMemoryRepository(default_locker_count=2)
     await repo.initialize()
     return repo
 

@@ -208,7 +208,8 @@ function renderOverviewLockers(lockers) {
 
   gridEl.innerHTML = lockers.map(l => `
     <div class="locker-card ${l.is_occupied ? 'occupied' : 'vacant'}">
-      <div class="locker-number">Locker #${l.locker_number}</div>
+      <div class="locker-title">LOCKER</div>
+      <div class="locker-number">#${l.locker_number}</div>
       <div class="locker-status-text">${l.is_occupied ? 'Đang dùng' : 'Trống'}</div>
     </div>
   `).join('');
@@ -397,7 +398,8 @@ function renderAdminLockers(lockers) {
 
     return `
       <div class="locker-card ${isOccupied ? 'occupied' : 'vacant'}">
-        <div class="locker-number">Locker #${l.locker_number}</div>
+        <div class="locker-title">LOCKER</div>
+        <div class="locker-number">#${l.locker_number}</div>
         <div class="locker-status-text">${isOccupied ? 'Đang dùng' : 'Trống'}</div>
         <div class="locker-holder">
           ${isOccupied ? `ID: <code>${cardStr}</code><br><small style="color:var(--text-muted);">${assignedTimeStr}</small>` : 'Sẵn sàng'}

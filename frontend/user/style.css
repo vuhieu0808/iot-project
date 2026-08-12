@@ -94,9 +94,54 @@
 }
 
 .locker-section {
-  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+}
+
+.locker-grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+  flex: 1;
+  max-height: 440px;
+  overflow-y: auto;
+  padding-right: 0.4rem;
 }
 
 .logs-section {
-  min-height: 400px;
+  display: flex;
+  flex-direction: column;
+  height: 520px;
+}
+
+.table-responsive {
+  flex: 1;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+/* Custom Scrollbars */
+.locker-grid-container::-webkit-scrollbar,
+.table-responsive::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.locker-grid-container::-webkit-scrollbar-track,
+.table-responsive::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.locker-grid-container::-webkit-scrollbar-thumb,
+.table-responsive::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+.locker-grid-container::-webkit-scrollbar-thumb:hover,
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }

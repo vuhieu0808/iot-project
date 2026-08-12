@@ -22,10 +22,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[str] = None
 
-    DB_TYPE: str = "sqlite"
-    SQLITE_DB_PATH: str = "gymtag.db"
-
-    FIREBASE_CREDENTIALS_PATH: str = "serviceAccountKey.json"
+    FIREBASE_CREDENTIALS_PATH: str = "firebase-admin-sdk.json"
     FIREBASE_DATABASE_URL: Optional[str] = None
 
     LOCKER_COUNT: int = 10

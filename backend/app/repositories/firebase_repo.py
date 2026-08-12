@@ -12,15 +12,10 @@ from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
 from app.repositories.base import BaseRepository
 
-logger = logging.getLogger(__name__)
+import firebase_admin
+from firebase_admin import credentials, db
 
-try:
-    import firebase_admin
-    from firebase_admin import credentials, db
-    FIREBASE_AVAILABLE = True
-except ImportError:
-    FIREBASE_AVAILABLE = False
-    logger.warning("firebase_admin package is not installed.")
+logger = logging.getLogger(__name__)
 
 
 class FirebaseRepository(BaseRepository):
@@ -39,9 +34,6 @@ class FirebaseRepository(BaseRepository):
 
     async def initialize(self) -> None:
         """Initialize Firebase Admin SDK and default locker records."""
-        if not FIREBASE_AVAILABLE:
-            raise RuntimeError("firebase_admin library not available.")
-
         def _init_sdk():
             if not firebase_admin._apps:
                 cred = credentials.Certificate(self.credentials_path)
@@ -61,6 +53,16 @@ class FirebaseRepository(BaseRepository):
     # --- Helper methods for Firebase refs ---
     def _ref(self, path: str):
         return db.reference(path)
+
+    @staticmethod
+    def _extract_items(data):
+        if not data:
+            return []
+        if isinstance(data, dict):
+            return [v for v in data.values() if isinstance(v, dict)]
+        elif isinstance(data, list):
+            return [v for v in data if isinstance(v, dict)]
+        return []
 
     # --- Member Methods ---
     async def get_member(self, card_id: str) -> Optional[Member]:
@@ -82,11 +84,9 @@ class FirebaseRepository(BaseRepository):
     async def get_all_members(self) -> List[Member]:
         def _get():
             data = self._ref("members").get()
-            if not data or not isinstance(data, dict):
-                return []
             result = []
-            for item in data.values():
-                if isinstance(item, dict) and "card_id" in item:
+            for item in self._extract_items(data):
+                if "card_id" in item:
                     result.append(
                         Member(
                             card_id=item["card_id"],
@@ -146,11 +146,9 @@ class FirebaseRepository(BaseRepository):
     async def get_all_lockers(self) -> List[Locker]:
         def _get():
             data = self._ref("lockers").get()
-            if not data or not isinstance(data, dict):
-                return []
             result = []
-            for item in data.values():
-                if isinstance(item, dict) and "locker_number" in item:
+            for item in self._extract_items(data):
+                if "locker_number" in item:
                     result.append(
                         Locker(
                             locker_number=item["locker_number"],
@@ -205,11 +203,9 @@ class FirebaseRepository(BaseRepository):
     async def get_check_logs(self, limit: int = 50, card_id: Optional[str] = None) -> List[CheckLog]:
         def _get():
             data = self._ref("check_logs").get()
-            if not data or not isinstance(data, dict):
-                return []
             logs = []
-            for item in data.values():
-                if isinstance(item, dict) and "card_id" in item:
+            for item in self._extract_items(data):
+                if "card_id" in item:
                     if card_id and item["card_id"] != card_id:
                         continue
                     logs.append(
@@ -271,11 +267,9 @@ class FirebaseRepository(BaseRepository):
     async def get_environment_readings(self, limit: int = 50) -> List[EnvironmentReading]:
         def _get():
             data = self._ref("environment_readings").get()
-            if not data or not isinstance(data, dict):
-                return []
             readings = []
-            for item in data.values():
-                if isinstance(item, dict) and "temperature" in item:
+            for item in self._extract_items(data):
+                if "temperature" in item:
                     readings.append(
                         EnvironmentReading(
                             temperature=item["temperature"],

@@ -97,7 +97,7 @@ báo cáo, và nhóm quen thuộc với Python hơn.
   ban đầu gộp phần "cửa chính" làm trọng tâm demo, phần locker và tích hợp
   MQTT/Telegram/Firebase thật sẽ được bổ sung dần.
 - Backend Python được tổ chức theo từng lớp trách nhiệm rõ ràng: models,
-  repositories (Firebase hoặc SQLite), services (logic nghiệp vụ), mqtt
+  repositories (Firebase Realtime Database), services (logic nghiệp vụ), mqtt
   (client và handler), api (REST và WebSocket cho dashboard).
 
 ## Chuẩn đặt tên topic MQTT

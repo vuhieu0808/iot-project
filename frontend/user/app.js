@@ -1,7 +1,3 @@
-/**
- * GymTag User Dashboard App Controller
- */
-
 import { GymTagAPI } from '../shared/js/api.js';
 import { wsClient } from '../shared/js/websocket.js';
 import { formatTime, formatDuration, escapeHtml } from '../shared/js/utils.js';
@@ -125,11 +121,17 @@ function renderLockers(lockers) {
   const vacantCount = lockers.filter(l => !l.is_occupied).length;
   summaryEl.textContent = `${vacantCount} / ${total} Trống`;
 
+  if (lockers.length === 0) {
+    container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">Chưa có dữ liệu locker.</div>`;
+    return;
+  }
+
   container.innerHTML = lockers.map(l => {
     const isOccupied = l.is_occupied;
     return `
       <div class="locker-card ${isOccupied ? 'occupied' : 'vacant'}">
-        <div class="locker-number">Locker #${l.locker_number}</div>
+        <div class="locker-title">LOCKER</div>
+        <div class="locker-number">#${l.locker_number}</div>
         <div class="locker-status-text">${isOccupied ? 'Đang dùng' : 'Trống'}</div>
         <div class="locker-holder">${isOccupied ? 'Đã gán' : 'Sẵn sàng'}</div>
       </div>

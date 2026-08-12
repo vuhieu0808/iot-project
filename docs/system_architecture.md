@@ -41,8 +41,7 @@ The system manages RFID card authentication at main entry doors and locker areas
 |                 |                      |           v                  |
 |                 v                      v    +----------------------+  |
 |         [Telegram Notifier]    [WebSocket]  | Firebase Realtime DB |  |
-|         (httpx HTTP API)       (Manager)    |  / SQLite Fallback   |  |
-|                                             +----------------------+  |
+|         (httpx HTTP API)       (Manager)    +----------------------+  |
 +-----------------------------------------------------------------------+
                                          |
                                   WebSocket / REST
@@ -80,9 +79,7 @@ The system manages RFID card authentication at main entry doors and locker areas
   - `EnvironmentService`: Evaluates temperature/humidity against thresholds (32.0 C / 80.0%), triggers automatic fan relay commands, and sends Telegram alerts.
   - `OccupancyService`: Calculates the current occupant count inside the facility.
   - `NotificationService`: Sends HTML-formatted alert messages to a Telegram Chat ID via Bot API using `httpx`.
-- **Repository Layer (`app/repositories/`)**: Implements an abstract repository pattern (`BaseRepository`) with dual database support:
-  - `FirebaseRepository`: Real-time cloud persistence using Firebase Realtime Database.
-  - `SQLiteRepository`: Non-blocking local SQLite persistence using `aiosqlite`.
+- **Repository Layer (`app/repositories/`)**: Implements an abstract repository pattern (`BaseRepository`) with Firebase Realtime Database persistence (`FirebaseRepository`).
 - **API & Realtime Layer (`app/api/`)**: Provides REST endpoints for CRUD operations and WebSockets (`/ws`) for live UI updates.
 
 ### 3.4 Web Dashboard

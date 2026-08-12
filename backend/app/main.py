@@ -10,7 +10,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from app.config import settings
-from app.repositories.sqlite_repo import SQLiteRepository
 from app.repositories.firebase_repo import FirebaseRepository
 from app.services.notification_service import NotificationService
 from app.services.access_service import AccessService
@@ -42,32 +41,19 @@ async def lifespan(app: FastAPI):
     """Manage application startup and shutdown lifecycle events."""
     logger.info("Initializing GymTag Backend Application...")
 
-    # 1. Initialize Repository (Firebase with SQLite fallback)
-    repo = None
-    if settings.DB_TYPE.lower() == "firebase":
-        if os.path.exists(settings.FIREBASE_CREDENTIALS_PATH) and settings.FIREBASE_DATABASE_URL:
-            try:
-                repo = FirebaseRepository(
-                    credentials_path=settings.FIREBASE_CREDENTIALS_PATH,
-                    database_url=settings.FIREBASE_DATABASE_URL,
-                    default_locker_count=settings.LOCKER_COUNT,
-                )
-                await repo.initialize()
-                logger.info("Using Firebase Realtime Database as primary repository.")
-            except Exception as e:
-                logger.error(f"Failed to initialize Firebase repository: {e}. Falling back to SQLite.")
-                repo = None
+    # 1. Initialize Firebase Repository
+    if not os.path.exists(settings.FIREBASE_CREDENTIALS_PATH):
+        raise FileNotFoundError(f"Firebase credentials file not found at: {settings.FIREBASE_CREDENTIALS_PATH}")
+    if not settings.FIREBASE_DATABASE_URL:
+        raise ValueError("FIREBASE_DATABASE_URL environment variable is missing.")
 
-        else:
-            logger.warning("Firebase credentials or database URL missing/invalid. Falling back to SQLite.")
-
-    if repo is None:
-        repo = SQLiteRepository(
-            db_path=settings.SQLITE_DB_PATH,
-            default_locker_count=settings.LOCKER_COUNT,
-        )
-        await repo.initialize()
-        logger.info("Using SQLite as database repository.")
+    repo = FirebaseRepository(
+        credentials_path=settings.FIREBASE_CREDENTIALS_PATH,
+        database_url=settings.FIREBASE_DATABASE_URL,
+        default_locker_count=settings.LOCKER_COUNT,
+    )
+    await repo.initialize()
+    logger.info("Using Firebase Realtime Database repository.")
 
     # 2. Instantiate Services
     notification_service = NotificationService(

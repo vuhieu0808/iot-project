@@ -5,16 +5,15 @@ import pytest_asyncio
 from datetime import date, timedelta
 from app.models.member import Member
 from app.models.check_log import AccessStatus, AccessAction
-from app.repositories.sqlite_repo import SQLiteRepository
+from tests.in_memory_repo import InMemoryRepository
 from app.services.access_service import AccessService
 from app.services.occupancy_service import OccupancyService
 
 
 @pytest_asyncio.fixture
-async def test_repo(tmp_path):
-    """Provide clean temporary SQLite repository for testing."""
-    db_file = str(tmp_path / "test_gymtag.db")
-    repo = SQLiteRepository(db_path=db_file, default_locker_count=5)
+async def test_repo():
+    """Provide clean InMemoryRepository for testing."""
+    repo = InMemoryRepository(default_locker_count=5)
     await repo.initialize()
     return repo
 

@@ -32,12 +32,8 @@ HUMIDITY_THRESHOLD=80.0
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 
-# Database Selection: 'firebase' or 'sqlite'
-DB_TYPE=sqlite
-SQLITE_DB_PATH=gymtag.db
-
-# Firebase Realtime DB Settings (required if DB_TYPE=firebase)
-FIREBASE_CREDENTIALS_PATH=serviceAccountKey.json
+# Firebase Realtime DB Settings
+FIREBASE_CREDENTIALS_PATH=firebase-admin-sdk.json
 FIREBASE_DATABASE_URL=https://your-project-id-default-rtdb.firebaseio.com/
 
 # Locker System

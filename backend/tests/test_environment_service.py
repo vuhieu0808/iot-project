@@ -2,7 +2,7 @@
 
 import pytest
 import pytest_asyncio
-from app.repositories.sqlite_repo import SQLiteRepository
+from tests.in_memory_repo import InMemoryRepository
 from app.services.environment_service import EnvironmentService
 from app.services.notification_service import NotificationService
 
@@ -20,10 +20,9 @@ class MockNotificationService(NotificationService):
 
 
 @pytest_asyncio.fixture
-async def test_repo(tmp_path):
-    """Provide clean temporary SQLite repository."""
-    db_file = str(tmp_path / "test_env.db")
-    repo = SQLiteRepository(db_path=db_file)
+async def test_repo():
+    """Provide clean InMemoryRepository."""
+    repo = InMemoryRepository()
     await repo.initialize()
     return repo
 
