@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GymTag Admin - Quản Trị Hệ Thống</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="../shared/css/variables.css">
+  <link rel="stylesheet" href="../shared/css/base.css">
+  <link rel="stylesheet" href="../shared/css/components.css">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+  <div class="admin-wrapper">
+    
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">🏷️</div>
+        <div class="brand-info">
+          <h2>GymTag</h2>
+          <span>Admin Control</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-tab="overview">
+          <span class="nav-icon">📊</span> Tổng quan
+        </button>
+        <button class="nav-item" data-tab="members">
+          <span class="nav-icon">👥</span> Quản lý Thành viên
+        </button>
+        <button class="nav-item" data-tab="lockers">
+          <span class="nav-icon">🔐</span> Quản lý Locker
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <span class="nav-icon">📋</span> Lịch sử Ra vào
+        </button>
+        <button class="nav-item" data-tab="environment">
+          <span class="nav-icon">🌡️</span> Lịch sử Môi trường
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="../user/index.html" class="btn btn-secondary btn-sm style-full">
+          <span>👁️ Xem Trang Public</span>
+        </a>
+        <button id="btn-admin-logout" class="btn btn-danger btn-sm style-full" style="margin-top: 0.5rem;">
+          <span>🔒 Đăng Xuất Admin</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Admin Body -->
+    <main class="admin-main">
+      
+      <!-- Top Bar -->
+      <header class="topbar">
+        <h1 id="page-title">Tổng Quan Hệ Thống</h1>
+        <div class="topbar-right">
+          <div id="ws-indicator" class="ws-indicator disconnected">
+            <span class="ws-dot"></span>
+            <span id="ws-status-text">Đang kết nối...</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Dynamic Tab Views Container -->
+      <div class="tab-content-container">
+        
+        <!-- TAB 1: OVERVIEW -->
+        <section id="tab-overview" class="tab-pane active">
+          <div class="telemetry-grid">
+            <div class="glass-card stat-widget">
+              <div class="stat-icon-wrapper blue">🏋️</div>
+              <div class="stat-content">
+                <span class="stat-label">Số người trong Gym</span>
+                <div id="overview-occupancy" class="stat-value">--</div>
+                <span class="stat-subtext">Đang có mặt</span>
+              </div>
+            </div>
+
+            <div class="glass-card stat-widget">
+              <div class="stat-icon-wrapper cyan">🌡️</div>
+              <div class="stat-content">
+                <span class="stat-label">Nhiệt độ / Độ ẩm</span>
+                <div id="overview-env" class="stat-value" style="font-size: 1.8rem;">--°C / --%</div>
+                <span id="overview-fan" class="stat-subtext">Quạt: --</span>
+              </div>
+            </div>
+
+            <div class="glass-card stat-widget">
+              <div class="stat-icon-wrapper purple">🔐</div>
+              <div class="stat-content">
+                <span class="stat-label">Tủ Locker Đang Dùng</span>
+                <div id="overview-lockers" class="stat-value">-- / --</div>
+                <span class="stat-subtext">Số lượng locker</span>
+              </div>
+            </div>
+
+            <div class="glass-card stat-widget">
+              <div class="stat-icon-wrapper amber">👥</div>
+              <div class="stat-content">
+                <span class="stat-label">Tổng Số Thành Viên</span>
+                <div id="overview-members" class="stat-value">--</div>
+                <span class="stat-subtext">Đã đăng ký trong hệ thống</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="content-split" style="margin-top: 1.5rem;">
+            <!-- Locker Map -->
+            <div class="glass-card">
+              <div class="section-header">
+                <h3>🔐 Trạng Thái Locker Quickview</h3>
+              </div>
+              <div id="overview-locker-grid" class="locker-grid-container"></div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="glass-card">
+              <div class="section-header">
+                <h3>📋 Lượt Quẹt Thẻ Mới Nhất</h3>
+              </div>
+              <div class="table-responsive">
+                <table class="custom-table">
+                  <thead>
+                    <tr>
+                      <th>Thời gian</th>
+                      <th>Card ID</th>
+                      <th>Thành viên</th>
+                      <th>Sự kiện</th>
+                      <th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-logs-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: MEMBERS MANAGEMENT -->
+        <section id="tab-members" class="tab-pane">
+          <div class="glass-card">
+            <div class="section-header">
+              <h2>👥 Danh Sách Thành Viên</h2>
+              <button id="btn-add-member" class="btn btn-primary">
+                <span>➕ Thêm Thành Viên Mới</span>
+              </button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>RFID Card ID</th>
+                    <th>Họ và Tên</th>
+                    <th>Email</th>
+                    <th>Số điện thoại</th>
+                    <th>Ngày hết hạn</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                  </tr>
+                </thead>
+                <tbody id="members-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: LOCKERS MANAGEMENT -->
+        <section id="tab-lockers" class="tab-pane">
+          <div class="glass-card">
+            <div class="section-header">
+              <h2>🔐 Chi Tiết Khu Vực Locker</h2>
+              <span id="admin-locker-summary" class="badge badge-info">--</span>
+            </div>
+            <div id="admin-locker-grid" class="locker-grid-container"></div>
+          </div>
+        </section>
+
+        <!-- TAB 4: ACCESS LOGS -->
+        <section id="tab-logs" class="tab-pane">
+          <div class="glass-card">
+            <div class="section-header">
+              <h2>📋 Lịch Sử Kiểm Soát Ra Vào</h2>
+              <div class="filter-controls">
+                <input type="text" id="filter-card-id" class="form-input" placeholder="Lọc theo Card ID..." style="width: 200px;">
+                <button id="btn-filter-logs" class="btn btn-secondary">🔍 Lọc</button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>RFID Card ID</th>
+                    <th>Tên Thành viên</th>
+                    <th>Hành động</th>
+                    <th>Kết quả</th>
+                    <th>Thời gian tập</th>
+                    <th>Ghi chú</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-logs-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: ENVIRONMENT HISTORY -->
+        <section id="tab-environment" class="tab-pane">
+          <div class="glass-card">
+            <div class="section-header">
+              <h2>🌡️ Lịch Sử Đo Môi Trường (DHT22)</h2>
+              <button id="btn-refresh-env" class="btn btn-secondary btn-sm">🔄 Cập nhật</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Thời gian ghi nhận</th>
+                    <th>Nhiệt độ (°C)</th>
+                    <th>Độ ẩm (%)</th>
+                    <th>Trạng thái Quạt thông gió</th>
+                  </tr>
+                </thead>
+                <tbody id="env-history-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Member Create / Edit Modal -->
+  <div id="member-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">Thêm Thành Viên Mới</h3>
+        <button id="btn-close-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <form id="member-form">
+        <div class="form-group">
+          <label class="form-label" for="m-card-id">RFID Card ID *</label>
+          <input type="text" id="m-card-id" class="form-input" placeholder="VD: CARD001" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="m-name">Họ và Tên *</label>
+          <input type="text" id="m-name" class="form-input" placeholder="VD: Nguyễn Văn A" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="m-email">Email</label>
+          <input type="email" id="m-email" class="form-input" placeholder="VD: a@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="m-phone">Số điện thoại</label>
+          <input type="text" id="m-phone" class="form-input" placeholder="VD: 0901234567">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="m-expiry">Ngày hết hạn Membership *</label>
+          <input type="date" id="m-expiry" class="form-input" required>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btn-cancel-modal" class="btn btn-secondary">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu Thành Viên</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Authentication Login Modal Overlay -->
+  <div id="admin-login-overlay" class="modal-overlay active" style="z-index: 2000;">
+    <div class="modal-card" style="max-width: 400px; text-align: center;">
+      <div class="modal-header" style="justify-content: center;">
+        <h3>🔒 Đăng Nhập Quản Trị Admin</h3>
+      </div>
+      <form id="admin-login-form" style="padding: 1.5rem;">
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.25rem;">
+          Vui lòng nhập Mã Khóa Quản Trị (Passkey) để truy cập hệ thống GymTag Admin.
+        </p>
+        <div class="form-group">
+          <input type="password" id="admin-passkey-input" class="form-input" placeholder="Mã khóa Admin..." required style="text-align: center; font-size: 1.1rem; letter-spacing: 2px;">
+        </div>
+        <div id="login-error-msg" style="color: var(--status-danger); font-size: 0.85rem; margin-top: 0.5rem; display: none;">
+          ⚠️ Mã khóa Admin không chính xác!
+        </div>
+        <div class="modal-footer" style="justify-content: center; margin-top: 1.25rem;">
+          <button type="submit" class="btn btn-primary style-full">🔓 Đăng Nhập</button>
+        </div>
+        <div style="margin-top: 1rem;">
+          <a href="../user/index.html" style="font-size: 0.8rem; color: var(--text-muted);">← Quay lại Trang Public</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JS Scripts -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

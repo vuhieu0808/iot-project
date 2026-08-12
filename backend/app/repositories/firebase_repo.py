@@ -1,0 +1,295 @@
+"""Firebase Realtime Database implementation of BaseRepository."""
+
+import asyncio
+import logging
+import uuid
+from datetime import datetime, date
+from typing import List, Optional
+
+from app.models.member import Member
+from app.models.locker import Locker
+from app.models.environment import EnvironmentReading
+from app.models.check_log import CheckLog, AccessAction, AccessStatus
+from app.repositories.base import BaseRepository
+
+logger = logging.getLogger(__name__)
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials, db
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
+    logger.warning("firebase_admin package is not installed.")
+
+
+class FirebaseRepository(BaseRepository):
+    """Firebase Realtime Database repository implementation."""
+
+    def __init__(
+        self,
+        credentials_path: str = "serviceAccountKey.json",
+        database_url: Optional[str] = None,
+        default_locker_count: int = 5,
+    ):
+        self.credentials_path = credentials_path
+        self.database_url = database_url
+        self.default_locker_count = default_locker_count
+        self.initialized = False
+
+    async def initialize(self) -> None:
+        """Initialize Firebase Admin SDK and default locker records."""
+        if not FIREBASE_AVAILABLE:
+            raise RuntimeError("firebase_admin library not available.")
+
+        def _init_sdk():
+            if not firebase_admin._apps:
+                cred = credentials.Certificate(self.credentials_path)
+                firebase_admin.initialize_app(cred, {"databaseURL": self.database_url})
+            self.initialized = True
+            logger.info("Firebase Realtime Database initialized successfully.")
+
+        await asyncio.to_thread(_init_sdk)
+
+        # Initialize default lockers if missing
+        lockers = await self.get_all_lockers()
+        if len(lockers) < self.default_locker_count:
+            for i in range(1, self.default_locker_count + 1):
+                if not any(l.locker_number == i for l in lockers):
+                    await self.save_locker(Locker(locker_number=i, is_occupied=False))
+
+    # --- Helper methods for Firebase refs ---
+    def _ref(self, path: str):
+        return db.reference(path)
+
+    # --- Member Methods ---
+    async def get_member(self, card_id: str) -> Optional[Member]:
+        def _get():
+            data = self._ref(f"members/{card_id}").get()
+            if not data:
+                return None
+            return Member(
+                card_id=data["card_id"],
+                name=data["name"],
+                email=data.get("email"),
+                phone=data.get("phone"),
+                membership_expiry=date.fromisoformat(data["membership_expiry"]),
+                is_active=bool(data.get("is_active", True)),
+                created_at=data.get("created_at"),
+            )
+        return await asyncio.to_thread(_get)
+
+    async def get_all_members(self) -> List[Member]:
+        def _get():
+            data = self._ref("members").get()
+            if not data or not isinstance(data, dict):
+                return []
+            result = []
+            for item in data.values():
+                if isinstance(item, dict) and "card_id" in item:
+                    result.append(
+                        Member(
+                            card_id=item["card_id"],
+                            name=item["name"],
+                            email=item.get("email"),
+                            phone=item.get("phone"),
+                            membership_expiry=date.fromisoformat(item["membership_expiry"]),
+                            is_active=bool(item.get("is_active", True)),
+                            created_at=item.get("created_at"),
+                        )
+                    )
+            return result
+        return await asyncio.to_thread(_get)
+
+    async def save_member(self, member: Member) -> Member:
+        now_str = member.created_at or datetime.now().isoformat()
+        member_to_save = member.model_copy(update={"created_at": now_str})
+
+        def _save():
+            data = {
+                "card_id": member_to_save.card_id,
+                "name": member_to_save.name,
+                "email": member_to_save.email,
+                "phone": member_to_save.phone,
+                "membership_expiry": member_to_save.membership_expiry.isoformat(),
+                "is_active": member_to_save.is_active,
+                "created_at": member_to_save.created_at,
+            }
+            self._ref(f"members/{member_to_save.card_id}").set(data)
+
+        await asyncio.to_thread(_save)
+        return member_to_save
+
+    async def delete_member(self, card_id: str) -> bool:
+        def _delete():
+            ref = self._ref(f"members/{card_id}")
+            if ref.get() is not None:
+                ref.delete()
+                return True
+            return False
+        return await asyncio.to_thread(_delete)
+
+    # --- Locker Methods ---
+    async def get_locker(self, locker_number: int) -> Optional[Locker]:
+        def _get():
+            data = self._ref(f"lockers/{locker_number}").get()
+            if not data:
+                return None
+            return Locker(
+                locker_number=data["locker_number"],
+                is_occupied=bool(data["is_occupied"]),
+                card_id=data.get("card_id"),
+                assigned_at=data.get("assigned_at"),
+            )
+        return await asyncio.to_thread(_get)
+
+    async def get_all_lockers(self) -> List[Locker]:
+        def _get():
+            data = self._ref("lockers").get()
+            if not data or not isinstance(data, dict):
+                return []
+            result = []
+            for item in data.values():
+                if isinstance(item, dict) and "locker_number" in item:
+                    result.append(
+                        Locker(
+                            locker_number=item["locker_number"],
+                            is_occupied=bool(item["is_occupied"]),
+                            card_id=item.get("card_id"),
+                            assigned_at=item.get("assigned_at"),
+                        )
+                    )
+            return sorted(result, key=lambda x: x.locker_number)
+        return await asyncio.to_thread(_get)
+
+    async def save_locker(self, locker: Locker) -> Locker:
+        def _save():
+            data = {
+                "locker_number": locker.locker_number,
+                "is_occupied": locker.is_occupied,
+                "card_id": locker.card_id,
+                "assigned_at": locker.assigned_at,
+            }
+            self._ref(f"lockers/{locker.locker_number}").set(data)
+        await asyncio.to_thread(_save)
+        return locker
+
+    async def get_locker_by_card(self, card_id: str) -> Optional[Locker]:
+        lockers = await self.get_all_lockers()
+        for locker in lockers:
+            if locker.is_occupied and locker.card_id == card_id:
+                return locker
+        return None
+
+    # --- Check Log / Occupancy Methods ---
+    async def add_check_log(self, log: CheckLog) -> CheckLog:
+        log_id = log.id or str(uuid.uuid4())
+        timestamp_str = log.timestamp or datetime.now().isoformat()
+        log_to_save = log.model_copy(update={"id": log_id, "timestamp": timestamp_str})
+
+        def _save():
+            data = {
+                "id": log_to_save.id,
+                "card_id": log_to_save.card_id,
+                "member_name": log_to_save.member_name,
+                "action": log_to_save.action.value,
+                "status": log_to_save.status.value,
+                "reason": log_to_save.reason,
+                "duration_minutes": log_to_save.duration_minutes,
+                "timestamp": log_to_save.timestamp,
+            }
+            self._ref(f"check_logs/{log_to_save.id}").set(data)
+        await asyncio.to_thread(_save)
+        return log_to_save
+
+    async def get_check_logs(self, limit: int = 50, card_id: Optional[str] = None) -> List[CheckLog]:
+        def _get():
+            data = self._ref("check_logs").get()
+            if not data or not isinstance(data, dict):
+                return []
+            logs = []
+            for item in data.values():
+                if isinstance(item, dict) and "card_id" in item:
+                    if card_id and item["card_id"] != card_id:
+                        continue
+                    logs.append(
+                        CheckLog(
+                            id=item["id"],
+                            card_id=item["card_id"],
+                            member_name=item.get("member_name", "Unknown"),
+                            action=AccessAction(item["action"]),
+                            status=AccessStatus(item["status"]),
+                            reason=item.get("reason"),
+                            duration_minutes=item.get("duration_minutes"),
+                            timestamp=item.get("timestamp"),
+                        )
+                    )
+            logs.sort(key=lambda x: x.timestamp or "", reverse=True)
+            return logs[:limit]
+        return await asyncio.to_thread(_get)
+
+    async def get_active_checkin_for_card(self, card_id: str) -> Optional[CheckLog]:
+        logs = await self.get_check_logs(limit=100, card_id=card_id)
+        granted_logs = [l for l in logs if l.status == AccessStatus.GRANTED]
+        if not granted_logs:
+            return None
+        latest = granted_logs[0]
+        if latest.action == AccessAction.CHECKOUT:
+            return None
+        return latest
+
+    async def get_current_occupancy_count(self) -> int:
+        logs = await self.get_check_logs(limit=500)
+        granted_logs = [l for l in logs if l.status == AccessStatus.GRANTED]
+
+        latest_by_card = {}
+        for log in granted_logs:
+            if log.card_id not in latest_by_card:
+                latest_by_card[log.card_id] = log
+
+        count = sum(1 for log in latest_by_card.values() if log.action == AccessAction.CHECKIN)
+        return max(0, count)
+
+    # --- Environment Methods ---
+    async def add_environment_reading(self, reading: EnvironmentReading) -> EnvironmentReading:
+        timestamp_str = reading.timestamp or datetime.now().isoformat()
+        reading_to_save = reading.model_copy(update={"timestamp": timestamp_str})
+        reading_id = str(uuid.uuid4())
+
+        def _save():
+            data = {
+                "temperature": reading_to_save.temperature,
+                "humidity": reading_to_save.humidity,
+                "fan_on": reading_to_save.fan_on,
+                "timestamp": reading_to_save.timestamp,
+            }
+            self._ref(f"environment_readings/{reading_id}").set(data)
+
+        await asyncio.to_thread(_save)
+        return reading_to_save
+
+    async def get_environment_readings(self, limit: int = 50) -> List[EnvironmentReading]:
+        def _get():
+            data = self._ref("environment_readings").get()
+            if not data or not isinstance(data, dict):
+                return []
+            readings = []
+            for item in data.values():
+                if isinstance(item, dict) and "temperature" in item:
+                    readings.append(
+                        EnvironmentReading(
+                            temperature=item["temperature"],
+                            humidity=item["humidity"],
+                            fan_on=bool(item.get("fan_on", False)),
+                            timestamp=item.get("timestamp"),
+                        )
+                    )
+            readings.sort(key=lambda x: x.timestamp or "", reverse=True)
+            return readings[:limit]
+        return await asyncio.to_thread(_get)
+
+    async def get_latest_reading(self) -> Optional[EnvironmentReading]:
+        readings = await self.get_environment_readings(limit=1)
+        if readings:
+            return readings[0]
+        return None
