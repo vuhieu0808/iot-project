@@ -140,6 +140,10 @@
   background-color: var(--status-danger);
 }
 
+.locker-card.broken::before {
+  background-color: var(--status-warning);
+}
+
 .locker-card.vacant {
   border-color: rgba(16, 185, 129, 0.3);
 }
@@ -147,6 +151,20 @@
 .locker-card.occupied {
   border-color: rgba(239, 68, 68, 0.3);
   background: rgba(239, 68, 68, 0.05);
+}
+
+.locker-card.broken {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.locker-card.admin-clickable {
+  cursor: pointer;
+}
+
+.locker-card.admin-clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .locker-title {
@@ -189,6 +207,12 @@
   color: var(--status-danger);
   background: rgba(239, 68, 68, 0.1);
 }
+
+.locker-card.broken .locker-status-text {
+  color: var(--status-warning);
+  background: rgba(245, 158, 11, 0.15);
+}
+
 
 .locker-holder {
   font-size: 0.75rem;

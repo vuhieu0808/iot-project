@@ -1,4 +1,4 @@
-import { GymTagAPI } from '../shared/js/api.js';
+import { GymTagAPI } from '../shared/js/api.js?v=3.2';
 import { wsClient } from '../shared/js/websocket.js';
 import { formatTime, formatDuration, escapeHtml } from '../shared/js/utils.js';
 
@@ -118,8 +118,9 @@ function renderLockers(lockers) {
   if (!container || !lockers) return;
 
   const total = lockers.length;
-  const vacantCount = lockers.filter(l => !l.is_occupied).length;
-  summaryEl.textContent = `${vacantCount} / ${total} Trống`;
+  const vacantCount = lockers.filter(l => l.status === 'vacant' || (!l.is_occupied && l.status !== 'broken')).length;
+  const brokenCount = lockers.filter(l => l.status === 'broken').length;
+  summaryEl.textContent = `${vacantCount} / ${total} Trống` + (brokenCount > 0 ? ` (${brokenCount} hỏng)` : '');
 
   if (lockers.length === 0) {
     container.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">Chưa có dữ liệu locker.</div>`;
@@ -127,17 +128,32 @@ function renderLockers(lockers) {
   }
 
   container.innerHTML = lockers.map(l => {
-    const isOccupied = l.is_occupied;
+    const status = l.status || (l.is_occupied ? 'occupied' : 'vacant');
+    let statusClass = 'vacant';
+    let statusText = 'Trống';
+    let holderText = 'Sẵn sàng';
+
+    if (status === 'broken') {
+      statusClass = 'broken';
+      statusText = 'Hỏng';
+      holderText = 'Bảo trì';
+    } else if (status === 'occupied' || l.is_occupied) {
+      statusClass = 'occupied';
+      statusText = 'Đang dùng';
+      holderText = 'Đã có người';
+    }
+
     return `
-      <div class="locker-card ${isOccupied ? 'occupied' : 'vacant'}">
+      <div class="locker-card ${statusClass}">
         <div class="locker-title">LOCKER</div>
         <div class="locker-number">#${l.locker_number}</div>
-        <div class="locker-status-text">${isOccupied ? 'Đang dùng' : 'Trống'}</div>
-        <div class="locker-holder">${isOccupied ? 'Đã gán' : 'Sẵn sàng'}</div>
+        <div class="locker-status-text">${statusText}</div>
+        <div class="locker-holder">${holderText}</div>
       </div>
     `;
   }).join('');
 }
+
 
 async function fetchLogs() {
   try {

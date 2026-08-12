@@ -2,12 +2,14 @@
  * GymTag Admin Panel App Controller
  */
 
-import { GymTagAPI } from '../shared/js/api.js';
+import { GymTagAPI } from '../shared/js/api.js?v=3.2';
 import { wsClient } from '../shared/js/websocket.js';
 import { formatTime, formatDate, formatDuration, escapeHtml, showToast } from '../shared/js/utils.js';
 
 const ADMIN_PASSKEY = 'admin123';
 let isEditMode = false;
+let cachedMembers = [];
+
 
 document.addEventListener('DOMContentLoaded', () => {
   setupAuth();
@@ -59,6 +61,7 @@ function setupAuth() {
 async function initAdmin() {
   setupTabs();
   setupModal();
+  setupLockerModal();
   setupWebSocket();
   await loadOverviewData();
 }
@@ -75,7 +78,7 @@ function setupTabs() {
     overview: 'Tổng Quan Hệ Thống',
     members: 'Quản Lý Thành Viên',
     lockers: 'Quản Lý Locker',
-    logs: 'Lịch SửRa Vào',
+    logs: 'Lịch Sử Ra Vào',
     environment: 'Lịch Sử Môi Trường'
   };
 
@@ -203,17 +206,43 @@ function renderOverviewLockers(lockers) {
   if (!lockers) return;
 
   const total = lockers.length;
-  const occupied = lockers.filter(l => l.is_occupied).length;
-  countEl.textContent = `${occupied} / ${total}`;
+  const occupied = lockers.filter(l => l.is_occupied || l.status === 'occupied').length;
+  const broken = lockers.filter(l => l.status === 'broken').length;
+  countEl.textContent = `${occupied} / ${total}${broken > 0 ? ` (${broken} hỏng)` : ''}`;
 
-  gridEl.innerHTML = lockers.map(l => `
-    <div class="locker-card ${l.is_occupied ? 'occupied' : 'vacant'}">
-      <div class="locker-title">LOCKER</div>
-      <div class="locker-number">#${l.locker_number}</div>
-      <div class="locker-status-text">${l.is_occupied ? 'Đang dùng' : 'Trống'}</div>
-    </div>
-  `).join('');
+  gridEl.innerHTML = lockers.map(l => {
+    const status = l.status || (l.is_occupied ? 'occupied' : 'vacant');
+    let statusClass = 'vacant';
+    let statusText = 'Trống';
+
+    if (status === 'broken') {
+      statusClass = 'broken';
+      statusText = 'Hỏng';
+    } else if (status === 'occupied' || l.is_occupied) {
+      statusClass = 'occupied';
+      statusText = 'Đang dùng';
+    }
+
+    return `
+      <div class="locker-card ${statusClass} admin-clickable" data-locker="${l.locker_number}">
+        <div class="locker-title">LOCKER</div>
+        <div class="locker-number">#${l.locker_number}</div>
+        <div class="locker-status-text">${statusText}</div>
+      </div>
+    `;
+  }).join('');
+
+  gridEl.querySelectorAll('.locker-card.admin-clickable').forEach(cardEl => {
+    cardEl.addEventListener('click', () => {
+      const lockerNum = parseInt(cardEl.getAttribute('data-locker'), 10);
+      const lockerObj = lockers.find(l => l.locker_number === lockerNum);
+      if (lockerObj) {
+        openLockerModal(lockerObj);
+      }
+    });
+  });
 }
+
 
 function renderOverviewLogs(logs) {
   const tbody = document.getElementById('overview-logs-tbody');
@@ -335,6 +364,246 @@ function setupModal() {
   });
 }
 
+let selectedLocker = null;
+let selectedAssignCardId = null;
+
+function renderMemberOptions(filterText = '') {
+  const listEl = document.getElementById('assign-member-list');
+  if (!listEl) return;
+
+  const term = filterText.toLowerCase();
+  const filtered = cachedMembers.filter(m => {
+    const nameMatch = m.name ? m.name.toLowerCase().includes(term) : false;
+    const cardMatch = m.card_id ? m.card_id.toLowerCase().includes(term) : false;
+    const phoneMatch = m.phone ? m.phone.includes(term) : false;
+    return nameMatch || cardMatch || phoneMatch;
+  });
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = `<div class="dropdown-item-empty">Không tìm thấy thành viên phù hợp</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(m => {
+    const isSelected = selectedAssignCardId === m.card_id;
+    return `
+      <div class="dropdown-item ${isSelected ? 'selected' : ''}" data-card="${escapeHtml(m.card_id)}" data-name="${escapeHtml(m.name)}">
+        <div class="item-title">
+          <span>${escapeHtml(m.name)}</span>
+          <span class="item-card-badge">${escapeHtml(m.card_id)}</span>
+        </div>
+        <div class="item-sub">
+          ${m.phone ? 'SĐT: ' + escapeHtml(m.phone) + ' • ' : ''}Hạn: ${formatDate(m.membership_expiry)}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Attach click listener for option selection
+  listEl.querySelectorAll('.dropdown-item').forEach(itemEl => {
+    itemEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cardId = itemEl.getAttribute('data-card');
+      const memberName = itemEl.getAttribute('data-name');
+      selectedAssignCardId = cardId;
+
+      const searchInput = document.getElementById('assign-member-search');
+      if (searchInput) {
+        searchInput.value = `[${cardId}] ${memberName}`;
+      }
+
+      const wrapper = document.getElementById('assign-member-wrapper');
+      if (wrapper) {
+        wrapper.classList.remove('open');
+      }
+    });
+  });
+}
+
+function setupLockerModal() {
+  const modal = document.getElementById('locker-modal');
+  const btnClose = document.getElementById('btn-close-locker-modal');
+  const btnCancel = document.getElementById('btn-cancel-locker-modal');
+  const btnForceRelease = document.getElementById('btn-force-release');
+  const btnForceAssign = document.getElementById('btn-force-assign');
+  const btnToggleBroken = document.getElementById('btn-toggle-broken');
+  const wrapper = document.getElementById('assign-member-wrapper');
+  const searchInput = document.getElementById('assign-member-search');
+
+  const closeModal = () => {
+    modal.classList.remove('active');
+    if (wrapper) wrapper.classList.remove('open');
+    selectedLocker = null;
+    selectedAssignCardId = null;
+  };
+
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+
+  if (searchInput && wrapper) {
+    const openDropdown = () => {
+      wrapper.classList.add('open');
+      if (searchInput.value.startsWith('[')) {
+        searchInput.select();
+        renderMemberOptions('');
+      } else {
+        renderMemberOptions(searchInput.value.trim());
+      }
+    };
+
+    searchInput.addEventListener('click', openDropdown);
+    searchInput.addEventListener('focus', openDropdown);
+
+    searchInput.addEventListener('input', () => {
+      selectedAssignCardId = null;
+      wrapper.classList.add('open');
+      renderMemberOptions(searchInput.value.trim());
+    });
+  }
+
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (wrapper && !wrapper.contains(e.target)) {
+      wrapper.classList.remove('open');
+    }
+  });
+
+  // Force Release
+  btnForceRelease.addEventListener('click', async () => {
+    if (!selectedLocker) return;
+    try {
+      await GymTagAPI.forceReleaseLocker(selectedLocker.locker_number);
+      showToast(`Đã force giải phóng Locker #${selectedLocker.locker_number}`, 'success');
+      closeModal();
+      loadLockersData();
+      loadOverviewData();
+    } catch (e) {
+      showToast(`Lỗi: ${e.message}`, 'error');
+    }
+  });
+
+  // Force Assign
+  btnForceAssign.addEventListener('click', async () => {
+    if (!selectedLocker) return;
+    const cardId = selectedAssignCardId || (searchInput ? searchInput.value.trim() : '');
+    if (!cardId) {
+      showToast('Vui lòng chọn hoặc nhập Card ID thành viên!', 'error');
+      return;
+    }
+    try {
+      await GymTagAPI.forceAssignLocker(selectedLocker.locker_number, cardId);
+      showToast(`Đã gán thành viên cho Locker #${selectedLocker.locker_number}`, 'success');
+      closeModal();
+      loadLockersData();
+      loadOverviewData();
+    } catch (e) {
+      showToast(`Lỗi gán locker: ${e.message}`, 'error');
+    }
+  });
+
+  // Toggle Broken / Status
+  btnToggleBroken.addEventListener('click', async () => {
+    if (!selectedLocker) return;
+    const currentStatus = selectedLocker.status || (selectedLocker.is_occupied ? 'occupied' : 'vacant');
+    const newStatus = currentStatus === 'broken' ? 'vacant' : 'broken';
+
+    try {
+      await GymTagAPI.setLockerStatus(selectedLocker.locker_number, newStatus);
+      showToast(
+        newStatus === 'broken'
+          ? `Đã báo hỏng Locker #${selectedLocker.locker_number}`
+          : `Đã khôi phục Locker #${selectedLocker.locker_number} về trạng thái Trống`,
+        'success'
+      );
+      closeModal();
+      loadLockersData();
+      loadOverviewData();
+    } catch (e) {
+      showToast(`Lỗi cập nhật trạng thái: ${e.message}`, 'error');
+    }
+  });
+}
+
+
+function openLockerModal(locker) {
+  selectedLocker = locker;
+  selectedAssignCardId = null;
+  const modal = document.getElementById('locker-modal');
+  const title = document.getElementById('locker-modal-title');
+  const summary = document.getElementById('locker-info-summary');
+  const btnForceRelease = document.getElementById('btn-force-release');
+  const btnToggleBroken = document.getElementById('btn-toggle-broken');
+  const groupForceAssign = document.getElementById('group-force-assign');
+  const searchInput = document.getElementById('assign-member-search');
+  const wrapper = document.getElementById('assign-member-wrapper');
+
+  title.textContent = `🔐 Quản Lý Locker #${locker.locker_number}`;
+  if (searchInput) searchInput.value = '';
+  if (wrapper) wrapper.classList.remove('open');
+
+  // Load members for assign dropdown
+  GymTagAPI.getMembers()
+    .then(members => {
+      cachedMembers = members || [];
+      renderMemberOptions('');
+    })
+    .catch(err => {
+      console.error('Error fetching members:', err);
+    });
+
+
+
+  const status = locker.status || (locker.is_occupied ? 'occupied' : 'vacant');
+
+  let statusBadgeHtml = '';
+
+  if (status === 'broken') {
+    statusBadgeHtml = `<span class="badge badge-warning">⚠️ Bị hỏng / Bảo trì</span>`;
+  } else if (status === 'occupied' || locker.is_occupied) {
+    statusBadgeHtml = `<span class="badge badge-denied">🔴 Đang dùng</span>`;
+  } else {
+    statusBadgeHtml = `<span class="badge badge-granted">🟢 Trống (Sẵn sàng)</span>`;
+  }
+
+  const holderInfo = locker.card_id
+    ? `Card ID: <code>${escapeHtml(locker.card_id)}</code><br><small style="color:var(--text-muted);">Gán lúc: ${formatTime(locker.assigned_at)}</small>`
+    : 'Không có người sử dụng';
+
+  summary.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+      <strong>Locker #${locker.locker_number}</strong>
+      ${statusBadgeHtml}
+    </div>
+    <div style="font-size:0.85rem; color:var(--text-secondary);">
+      ${holderInfo}
+    </div>
+  `;
+
+  // UI state based on locker status
+  if (status === 'broken') {
+    groupForceAssign.style.display = 'none';
+    btnForceRelease.style.display = 'none';
+    btnToggleBroken.style.display = 'block';
+    btnToggleBroken.className = 'btn btn-primary style-full';
+    btnToggleBroken.innerHTML = '🛠️ Đã Sửa Xong (Đưa về trạng thái Trống)';
+  } else if (status === 'occupied' || locker.is_occupied) {
+    groupForceAssign.style.display = 'none';
+    btnForceRelease.style.display = 'block';
+    btnToggleBroken.style.display = 'block';
+    btnToggleBroken.className = 'btn btn-danger style-full';
+    btnToggleBroken.innerHTML = '⚠️ Báo Hỏng / Đánh Dấu Bảo Trì';
+  } else {
+    groupForceAssign.style.display = 'block';
+    btnForceRelease.style.display = 'none';
+    btnToggleBroken.style.display = 'block';
+    btnToggleBroken.className = 'btn btn-danger style-full';
+    btnToggleBroken.innerHTML = '⚠️ Báo Hỏng / Đánh Dấu Bảo Trì';
+  }
+
+  modal.classList.add('active');
+}
+
 async function openEditModal(cardId) {
   try {
     const member = await GymTagAPI.getMemberById(cardId);
@@ -388,26 +657,54 @@ function renderAdminLockers(lockers) {
   if (!container || !lockers) return;
 
   const total = lockers.length;
-  const occupied = lockers.filter(l => l.is_occupied).length;
-  summary.textContent = `${occupied} / ${total} Locker đang có người dùng`;
+  const occupied = lockers.filter(l => l.is_occupied || l.status === 'occupied').length;
+  const broken = lockers.filter(l => l.status === 'broken').length;
+  summary.textContent = `${occupied} / ${total} Locker đang dùng` + (broken > 0 ? ` (${broken} hỏng)` : '');
 
   container.innerHTML = lockers.map(l => {
-    const isOccupied = l.is_occupied;
+    const status = l.status || (l.is_occupied ? 'occupied' : 'vacant');
+    let statusClass = 'vacant';
+    let statusText = 'Trống';
+
+    if (status === 'broken') {
+      statusClass = 'broken';
+      statusText = 'Hỏng';
+    } else if (status === 'occupied' || l.is_occupied) {
+      statusClass = 'occupied';
+      statusText = 'Đang dùng';
+    }
+
     const cardStr = l.card_id ? escapeHtml(l.card_id) : '-';
     const assignedTimeStr = l.assigned_at ? formatTime(l.assigned_at) : '';
 
     return `
-      <div class="locker-card ${isOccupied ? 'occupied' : 'vacant'}">
+      <div class="locker-card ${statusClass} admin-clickable" data-locker="${l.locker_number}">
         <div class="locker-title">LOCKER</div>
         <div class="locker-number">#${l.locker_number}</div>
-        <div class="locker-status-text">${isOccupied ? 'Đang dùng' : 'Trống'}</div>
+        <div class="locker-status-text">${statusText}</div>
         <div class="locker-holder">
-          ${isOccupied ? `ID: <code>${cardStr}</code><br><small style="color:var(--text-muted);">${assignedTimeStr}</small>` : 'Sẵn sàng'}
+          ${status === 'broken'
+            ? '<small style="color:var(--status-warning);">🛠️ Bảo trì</small>'
+            : (status === 'occupied' || l.is_occupied
+              ? `ID: <code>${cardStr}</code><br><small style="color:var(--text-muted);">${assignedTimeStr}</small>`
+              : 'Sẵn sàng')}
         </div>
       </div>
     `;
   }).join('');
+
+  // Attach click listener for opening admin modal on locker click
+  container.querySelectorAll('.locker-card.admin-clickable').forEach(cardEl => {
+    cardEl.addEventListener('click', () => {
+      const lockerNum = parseInt(cardEl.getAttribute('data-locker'), 10);
+      const lockerObj = lockers.find(l => l.locker_number === lockerNum);
+      if (lockerObj) {
+        openLockerModal(lockerObj);
+      }
+    });
+  });
 }
+
 
 /* ----------------------------------------------------
  * TAB 4: ACCESS LOGS

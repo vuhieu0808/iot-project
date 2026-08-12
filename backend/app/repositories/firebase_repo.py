@@ -7,7 +7,7 @@ from datetime import datetime, date
 from typing import List, Optional
 
 from app.models.member import Member
-from app.models.locker import Locker
+from app.models.locker import Locker, LockerStatus
 from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
 from app.repositories.base import BaseRepository
@@ -44,11 +44,12 @@ class FirebaseRepository(BaseRepository):
         await asyncio.to_thread(_init_sdk)
 
         # Initialize default lockers if missing
+        # Initialize default lockers if missing
         lockers = await self.get_all_lockers()
         if len(lockers) < self.default_locker_count:
             for i in range(1, self.default_locker_count + 1):
                 if not any(l.locker_number == i for l in lockers):
-                    await self.save_locker(Locker(locker_number=i, is_occupied=False))
+                    await self.save_locker(Locker(locker_number=i, status=LockerStatus.VACANT, is_occupied=False))
 
     # --- Helper methods for Firebase refs ---
     def _ref(self, path: str):
@@ -64,6 +65,26 @@ class FirebaseRepository(BaseRepository):
             return [v for v in data if isinstance(v, dict)]
         return []
 
+    @staticmethod
+    def _parse_locker_data(data: dict) -> Locker:
+        status_str = data.get("status")
+        if status_str in [s.value for s in LockerStatus]:
+            status = LockerStatus(status_str)
+        elif bool(data.get("is_occupied")):
+            status = LockerStatus.OCCUPIED
+        else:
+            status = LockerStatus.VACANT
+
+        card_id = str(data["card_id"]) if data.get("card_id") is not None else None
+
+        return Locker(
+            locker_number=data["locker_number"],
+            status=status,
+            is_occupied=(status == LockerStatus.OCCUPIED),
+            card_id=card_id,
+            assigned_at=data.get("assigned_at"),
+        )
+
     # --- Member Methods ---
     async def get_member(self, card_id: str) -> Optional[Member]:
         def _get():
@@ -71,7 +92,7 @@ class FirebaseRepository(BaseRepository):
             if not data:
                 return None
             return Member(
-                card_id=data["card_id"],
+                card_id=str(data["card_id"]),
                 name=data["name"],
                 email=data.get("email"),
                 phone=data.get("phone"),
@@ -89,7 +110,7 @@ class FirebaseRepository(BaseRepository):
                 if "card_id" in item:
                     result.append(
                         Member(
-                            card_id=item["card_id"],
+                            card_id=str(item["card_id"]),
                             name=item["name"],
                             email=item.get("email"),
                             phone=item.get("phone"),
@@ -107,7 +128,7 @@ class FirebaseRepository(BaseRepository):
 
         def _save():
             data = {
-                "card_id": member_to_save.card_id,
+                "card_id": str(member_to_save.card_id),
                 "name": member_to_save.name,
                 "email": member_to_save.email,
                 "phone": member_to_save.phone,
@@ -135,12 +156,7 @@ class FirebaseRepository(BaseRepository):
             data = self._ref(f"lockers/{locker_number}").get()
             if not data:
                 return None
-            return Locker(
-                locker_number=data["locker_number"],
-                is_occupied=bool(data["is_occupied"]),
-                card_id=data.get("card_id"),
-                assigned_at=data.get("assigned_at"),
-            )
+            return self._parse_locker_data(data)
         return await asyncio.to_thread(_get)
 
     async def get_all_lockers(self) -> List[Locker]:
@@ -149,14 +165,7 @@ class FirebaseRepository(BaseRepository):
             result = []
             for item in self._extract_items(data):
                 if "locker_number" in item:
-                    result.append(
-                        Locker(
-                            locker_number=item["locker_number"],
-                            is_occupied=bool(item["is_occupied"]),
-                            card_id=item.get("card_id"),
-                            assigned_at=item.get("assigned_at"),
-                        )
-                    )
+                    result.append(self._parse_locker_data(item))
             return sorted(result, key=lambda x: x.locker_number)
         return await asyncio.to_thread(_get)
 
@@ -164,8 +173,9 @@ class FirebaseRepository(BaseRepository):
         def _save():
             data = {
                 "locker_number": locker.locker_number,
+                "status": locker.status.value,
                 "is_occupied": locker.is_occupied,
-                "card_id": locker.card_id,
+                "card_id": str(locker.card_id) if locker.card_id is not None else None,
                 "assigned_at": locker.assigned_at,
             }
             self._ref(f"lockers/{locker.locker_number}").set(data)
@@ -175,7 +185,7 @@ class FirebaseRepository(BaseRepository):
     async def get_locker_by_card(self, card_id: str) -> Optional[Locker]:
         lockers = await self.get_all_lockers()
         for locker in lockers:
-            if locker.is_occupied and locker.card_id == card_id:
+            if locker.is_occupied and str(locker.card_id) == str(card_id):
                 return locker
         return None
 

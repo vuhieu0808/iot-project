@@ -47,3 +47,45 @@ async def test_locker_assignment_and_release(test_repo):
     res3_retry = await locker_service.process_locker_scan(card3)
     assert res3_retry["action"] == "assign"
     assert res3_retry["locker_number"] == 1
+
+
+@pytest.mark.asyncio
+async def test_broken_locker_skipped_during_assignment(test_repo):
+    """Test that lockers marked BROKEN are skipped when assigning via card scan."""
+    from app.models.locker import LockerStatus
+
+    locker_service = LockerService(repository=test_repo)
+
+    # Mark locker #1 as BROKEN
+    await locker_service.set_locker_status(1, LockerStatus.BROKEN)
+
+    # Scan card -> should get locker #2 (since #1 is broken)
+    res = await locker_service.process_locker_scan("CARD_USER_1")
+    assert res["action"] == "assign"
+    assert res["locker_number"] == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_force_operations(test_repo):
+    """Test admin force_assign, force_release, and set_locker_status operations."""
+    from app.models.locker import LockerStatus
+
+    locker_service = LockerService(repository=test_repo)
+
+    # 1. Force assign CARD_ADMIN to locker #1
+    assigned = await locker_service.force_assign_locker(1, "CARD_ADMIN")
+    assert assigned.is_occupied is True
+    assert assigned.status == LockerStatus.OCCUPIED
+    assert assigned.card_id == "CARD_ADMIN"
+
+    # 2. Force release locker #1
+    released = await locker_service.force_release_locker(1)
+    assert released.is_occupied is False
+    assert released.status == LockerStatus.VACANT
+    assert released.card_id is None
+
+    # 3. Mark locker #1 BROKEN
+    broken = await locker_service.set_locker_status(1, LockerStatus.BROKEN)
+    assert broken.status == LockerStatus.BROKEN
+    assert broken.is_occupied is False
+

@@ -1,9 +1,9 @@
-"""Locker management service handling assignment and release logic."""
+"""Locker management service handling assignment, release logic, and admin force controls."""
 
 import logging
 from datetime import datetime
 from typing import Any, Dict
-from app.models.locker import Locker
+from app.models.locker import Locker, LockerStatus
 from app.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class LockerService:
             locker_num = existing_locker.locker_number
             updated_locker = Locker(
                 locker_number=locker_num,
+                status=LockerStatus.VACANT,
                 is_occupied=False,
                 card_id=None,
                 assigned_at=None,
@@ -54,17 +55,17 @@ class LockerService:
                 "reason": f"Locker #{locker_num} released successfully",
             }
         else:
-            # ASSIGN LOCKER (Find first empty locker slot)
+            # ASSIGN LOCKER (Find first empty locker slot that is VACANT, not BROKEN)
             all_lockers = await self.repository.get_all_lockers()
-            empty_lockers = [l for l in all_lockers if not l.is_occupied]
+            empty_lockers = [l for l in all_lockers if l.status == LockerStatus.VACANT]
 
             if not empty_lockers:
-                logger.warning(f"Locker assignment failed for {card_id}: All lockers occupied.")
+                logger.warning(f"Locker assignment failed for {card_id}: No vacant lockers available.")
                 return {
                     "card_id": card_id,
                     "action": "denied",
                     "locker_number": None,
-                    "reason": "No lockers available",
+                    "reason": "No vacant lockers available",
                 }
 
             # Select lowest available locker number
@@ -73,6 +74,7 @@ class LockerService:
 
             updated_locker = Locker(
                 locker_number=target_locker.locker_number,
+                status=LockerStatus.OCCUPIED,
                 is_occupied=True,
                 card_id=card_id,
                 assigned_at=now_str,
@@ -90,3 +92,80 @@ class LockerService:
     async def get_all_lockers(self):
         """Retrieve all locker states."""
         return await self.repository.get_all_lockers()
+
+    async def force_release_locker(self, locker_number: int) -> Locker:
+        """Admin force release a locker."""
+        locker = await self.repository.get_locker(locker_number)
+        if not locker:
+            raise ValueError(f"Locker #{locker_number} not found.")
+
+        updated_locker = Locker(
+            locker_number=locker_number,
+            status=LockerStatus.VACANT,
+            is_occupied=False,
+            card_id=None,
+            assigned_at=None,
+        )
+        saved = await self.repository.save_locker(updated_locker)
+        logger.info(f"Admin force released locker #{locker_number}")
+        return saved
+
+    async def force_assign_locker(self, locker_number: int, card_id: str) -> Locker:
+        """Admin force assign a specific card_id to a locker."""
+        locker = await self.repository.get_locker(locker_number)
+        if not locker:
+            raise ValueError(f"Locker #{locker_number} not found.")
+
+        # If card already holds another locker, release it first
+        existing_locker = await self.repository.get_locker_by_card(card_id)
+        if existing_locker and existing_locker.locker_number != locker_number:
+            await self.force_release_locker(existing_locker.locker_number)
+
+        now_str = datetime.now().isoformat()
+        updated_locker = Locker(
+            locker_number=locker_number,
+            status=LockerStatus.OCCUPIED,
+            is_occupied=True,
+            card_id=card_id,
+            assigned_at=now_str,
+        )
+        saved = await self.repository.save_locker(updated_locker)
+        logger.info(f"Admin force assigned locker #{locker_number} to card_id {card_id}")
+        return saved
+
+    async def set_locker_status(self, locker_number: int, status: LockerStatus) -> Locker:
+        """Admin change status of a locker (vacant / broken / occupied)."""
+        locker = await self.repository.get_locker(locker_number)
+        if not locker:
+            raise ValueError(f"Locker #{locker_number} not found.")
+
+        if status == LockerStatus.BROKEN:
+            # If set to broken, clear user allocation
+            updated_locker = Locker(
+                locker_number=locker_number,
+                status=LockerStatus.BROKEN,
+                is_occupied=False,
+                card_id=None,
+                assigned_at=None,
+            )
+        elif status == LockerStatus.VACANT:
+            updated_locker = Locker(
+                locker_number=locker_number,
+                status=LockerStatus.VACANT,
+                is_occupied=False,
+                card_id=None,
+                assigned_at=None,
+            )
+        elif status == LockerStatus.OCCUPIED:
+            updated_locker = Locker(
+                locker_number=locker_number,
+                status=LockerStatus.OCCUPIED,
+                is_occupied=True,
+                card_id=locker.card_id,
+                assigned_at=locker.assigned_at or datetime.now().isoformat(),
+            )
+
+        saved = await self.repository.save_locker(updated_locker)
+        logger.info(f"Admin updated locker #{locker_number} status to {status.value}")
+        return saved
+

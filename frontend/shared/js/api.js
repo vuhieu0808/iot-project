@@ -46,6 +46,15 @@ export const GymTagAPI = {
 
   // Lockers
   getLockers: () => request('/api/lockers'),
+  forceReleaseLocker: (lockerNumber) => request(`/api/lockers/${lockerNumber}/force-release`, { method: 'POST' }),
+  forceAssignLocker: (lockerNumber, cardId) => request(`/api/lockers/${lockerNumber}/force-assign`, {
+    method: 'POST',
+    body: JSON.stringify({ card_id: cardId }),
+  }),
+  setLockerStatus: (lockerNumber, status) => request(`/api/lockers/${lockerNumber}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  }),
 
   // Logs
   getCheckLogs: (limit = 50, cardId = null) => {
@@ -65,3 +74,4 @@ export const GymTagAPI = {
     method: 'DELETE',
   }),
 };
+

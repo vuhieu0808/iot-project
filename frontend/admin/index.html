@@ -11,10 +11,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="../shared/css/variables.css?v=3.0">
-  <link rel="stylesheet" href="../shared/css/base.css?v=3.0">
-  <link rel="stylesheet" href="../shared/css/components.css?v=3.0">
-  <link rel="stylesheet" href="./style.css?v=3.0">
+  <link rel="stylesheet" href="../shared/css/variables.css?v=3.2">
+  <link rel="stylesheet" href="../shared/css/base.css?v=3.2">
+  <link rel="stylesheet" href="../shared/css/components.css?v=3.2">
+  <link rel="stylesheet" href="./style.css?v=3.2">
 </head>
 <body>
 
@@ -288,7 +288,53 @@
     </div>
   </div>
 
+  <!-- Locker Control Modal -->
+  <div id="locker-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 450px;">
+      <div class="modal-header">
+        <h3 id="locker-modal-title">🔐 Quản Lý Locker #</h3>
+        <button id="btn-close-locker-modal" class="modal-close-btn">&times;</button>
+      </div>
+      <div style="padding: 1.5rem;">
+        <div id="locker-info-summary" style="margin-bottom: 1.25rem; padding: 0.85rem; background: var(--bg-secondary); border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="form-group" id="group-force-assign" style="margin-bottom: 1.25rem;">
+          <label class="form-label" for="assign-member-search">Gán Thành Viên Cho Locker</label>
+          <div class="custom-select-wrapper" id="assign-member-wrapper">
+            <div class="select-input-container">
+              <input type="text" id="assign-member-search" class="form-input" placeholder="🔍 Click để chọn hoặc gõ tìm thành viên..." autocomplete="off">
+              <span class="select-arrow">▼</span>
+            </div>
+            <div class="select-dropdown-menu">
+              <div id="assign-member-list" class="select-dropdown-list">
+                <!-- Dynamically populated options -->
+              </div>
+            </div>
+          </div>
+          <button type="button" id="btn-force-assign" class="btn btn-primary style-full" style="margin-top: 0.75rem;">⚡ Force Gán User</button>
+        </div>
+
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <button type="button" id="btn-force-release" class="btn btn-secondary style-full">
+            🔓 Force Mở Khóa / Giải Phóng Locker
+          </button>
+          <button type="button" id="btn-toggle-broken" class="btn btn-danger style-full">
+            ⚠️ Báo Hỏng / Đánh Dấu Bảo Trì
+          </button>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+          <button type="button" id="btn-cancel-locker-modal" class="btn btn-secondary style-full">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Admin Authentication Login Modal Overlay -->
+
   <div id="admin-login-overlay" class="modal-overlay active" style="z-index: 2000;">
     <div class="modal-card" style="max-width: 400px; text-align: center;">
       <div class="modal-header" style="justify-content: center;">
@@ -315,6 +361,7 @@
   </div>
 
   <!-- JS Scripts -->
-  <script type="module" src="./app.js?v=3.0"></script>
+  <script type="module" src="./app.js?v=3.2"></script>
 </body>
 </html>
+
