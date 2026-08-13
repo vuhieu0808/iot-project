@@ -86,8 +86,6 @@ class MQTTMessageHandler:
             logger.error("Missing card_id in checkout request payload.")
             return
 
-        logger.info("hello")
-
         result = await self.access_service.checkout(card_id)
 
         response_payload = json.dumps(result)
