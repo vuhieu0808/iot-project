@@ -76,6 +76,7 @@ class MQTTClient:
             # Subscribe to incoming ESP32 topics
             topics_to_subscribe = [
                 (Topics.DOOR_CHECKIN_REQUEST, 0),
+                (Topics.DOOR_CHECKOUT_REQUEST, 0),
                 (Topics.LOCKER_REQUEST, 0),
                 (Topics.ENVIRONMENT_READING, 0),
             ]
