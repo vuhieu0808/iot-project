@@ -174,3 +174,7 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python
 
 firebase-admin-sdk.json
+
+# esp32
+esp32/.pio
+esp32/.vscode/*
