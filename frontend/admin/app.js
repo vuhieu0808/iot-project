@@ -156,6 +156,13 @@ function setupWebSocket() {
     }
   });
 
+  wsClient.on('checkout_event', () => {
+    loadOverviewData();
+    if (document.getElementById('tab-logs').classList.contains('active')) {
+      loadLogsData();
+    }
+  });
+
   wsClient.on('locker_event', (data) => {
     if (data.lockers) {
       renderOverviewLockers(data.lockers);
