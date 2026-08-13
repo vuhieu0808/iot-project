@@ -42,6 +42,8 @@ class MQTTMessageHandler:
 
         if topic == Topics.DOOR_CHECKIN_REQUEST:
             await self._handle_checkin_request(payload)
+        elif topic == Topics.DOOR_CHECKOUT_REQUEST:
+            await self._handle_checkout_request(payload)
         elif topic == Topics.LOCKER_REQUEST:
             await self._handle_locker_request(payload)
         elif topic == Topics.ENVIRONMENT_READING:
@@ -56,7 +58,7 @@ class MQTTMessageHandler:
             logger.error("Missing card_id in checkin request payload.")
             return
 
-        result = await self.access_service.verify_card_scan(card_id)
+        result = await self.access_service.checkin(card_id)
 
         # Publish response to ESP32
         response_payload = json.dumps(result)
@@ -70,6 +72,33 @@ class MQTTMessageHandler:
         })
 
         # Broadcast updated occupancy count to PUBLIC WS clients
+        occupancy_count = await self.occupancy_service.get_current_occupancy()
+        await ws_manager.broadcast_public({
+            "type": "occupancy_update",
+            "data": {
+                "current_occupancy": occupancy_count
+            }
+        })
+
+    async def _handle_checkout_request(self, payload: Dict[str, Any]) -> None:
+        card_id = payload.get("card_id")
+        if not card_id:
+            logger.error("Missing card_id in checkout request payload.")
+            return
+
+        logger.info("hello")
+
+        result = await self.access_service.checkout(card_id)
+
+        response_payload = json.dumps(result)
+        self.publish(Topics.DOOR_CHECKOUT_RESPONSE, response_payload)
+        logger.info(f"Published checkout response to ESP32: {response_payload}")
+
+        await ws_manager.broadcast_admin({
+            "type": "checkout_event",
+            "data": result
+        })
+
         occupancy_count = await self.occupancy_service.get_current_occupancy()
         await ws_manager.broadcast_public({
             "type": "occupancy_update",

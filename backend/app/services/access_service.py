@@ -11,23 +11,18 @@ logger = logging.getLogger(__name__)
 
 
 class AccessService:
-    """Handles door card scan verification, duration calculation, and logging."""
-
     def __init__(self, repository: BaseRepository):
         self.repository = repository
 
-    async def verify_card_scan(self, card_id: str) -> Dict[str, Any]:
+    async def checkin(self, card_id: str) -> Dict[str, Any]:
         """Process door card scan request from ESP32.
-
-        Args:
-            card_id: RFID card string scan.
 
         Returns:
             Dict containing result data for MQTT response:
             {
                 "card_id": str,
-                "status": "granted" | "denied",
                 "action": "checkin" | "checkout",
+                "status": "granted" | "denied",
                 "member_name": str,
                 "reason": str,
                 "duration_minutes": float or None
@@ -50,8 +45,8 @@ class AccessService:
             )
             return {
                 "card_id": card_id,
-                "status": AccessStatus.DENIED.value,
                 "action": AccessAction.CHECKIN.value,
+                "status": AccessStatus.DENIED.value,
                 "member_name": "Unknown",
                 "reason": "Card not found",
                 "duration_minutes": None,
@@ -71,8 +66,8 @@ class AccessService:
             )
             return {
                 "card_id": card_id,
-                "status": AccessStatus.DENIED.value,
                 "action": AccessAction.CHECKIN.value,
+                "status": AccessStatus.DENIED.value,
                 "member_name": member.name,
                 "reason": "Account inactive",
                 "duration_minutes": None,
@@ -95,8 +90,8 @@ class AccessService:
             )
             return {
                 "card_id": card_id,
-                "status": AccessStatus.DENIED.value,
                 "action": AccessAction.CHECKIN.value,
+                "status": AccessStatus.DENIED.value,
                 "member_name": member.name,
                 "reason": f"Membership expired ({member.membership_expiry})",
                 "duration_minutes": None,
@@ -107,7 +102,6 @@ class AccessService:
         now = datetime.now()
 
         if active_checkin is None:
-            # First scan -> CHECK-IN
             log = CheckLog(
                 card_id=card_id,
                 member_name=member.name,
@@ -120,22 +114,67 @@ class AccessService:
             logger.info(f"Check-in granted for {member.name} ({card_id})")
             return {
                 "card_id": card_id,
-                "status": AccessStatus.GRANTED.value,
                 "action": AccessAction.CHECKIN.value,
+                "status": AccessStatus.GRANTED.value,
                 "member_name": member.name,
                 "reason": "Check-in granted",
                 "duration_minutes": None,
             }
         else:
-            # Second scan -> CHECK-OUT
+            log = CheckLog(
+                card_id=card_id,
+                member_name=member.name,
+                action=AccessAction.CHECKIN,
+                status=AccessStatus.DENIED,
+                reason="This ID can't check in again",
+                timestamp=now.isoformat(),
+            )
+            await self.repository.add_check_log(log)
+            logger.warning(f"card_id: {card_id} can't check in again.")
+            return {
+                "card_id": card_id,
+                "action": AccessAction.CHECKIN.value,
+                "status": AccessStatus.DENIED.value,
+                "member_name": member.name,
+                "reason": "This ID can't check in again",
+                "duration_minutes": None,
+            }
+
+    async def checkout(self, card_id: str) -> Dict[str, Any]:
+        logger.info(f"Processing door scan for card_id: {card_id}")
+        member = await self.repository.get_member(card_id)
+
+        if not member:
+            logger.warning(f"Card scan failed: card_id {card_id} not found.")
+            await self.repository.add_check_log(
+                CheckLog(
+                    card_id=card_id,
+                    member_name="Unknown",
+                    action=AccessAction.CHECKOUT,
+                    status=AccessStatus.DENIED,
+                    reason="Card ID not registered in database",
+                )
+            )
+            return {
+                "card_id": card_id,
+                "action": AccessAction.CHECKOUT.value,
+                "status": AccessStatus.DENIED.value,
+                "member_name": "Unknown",
+                "reason": "Card not found",
+                "duration_minutes": None,
+            }
+
+        active_checkin = await self.repository.get_active_checkin_for_card(card_id)
+        now = datetime.now()
+
+        if active_checkin and active_checkin.timestamp:
             duration_minutes = 0.0
-            if active_checkin.timestamp:
-                try:
-                    checkin_dt = datetime.fromisoformat(active_checkin.timestamp)
-                    delta = now - checkin_dt
-                    duration_minutes = round(delta.total_seconds() / 60.0, 2)
-                except Exception as e:
-                    logger.error(f"Error calculating session duration: {e}")
+            try:
+                checkin_dt = datetime.fromisoformat(active_checkin.timestamp)
+                delta = now - checkin_dt
+                duration_minutes = round(delta.total_seconds() / 60.0, 2)
+            except Exception as e:
+                logger.error(f"Error calculating session duration: {e}")
 
             log = CheckLog(
                 card_id=card_id,
@@ -150,9 +189,28 @@ class AccessService:
             logger.info(f"Check-out granted for {member.name} ({card_id}), duration: {duration_minutes} mins")
             return {
                 "card_id": card_id,
-                "status": AccessStatus.GRANTED.value,
                 "action": AccessAction.CHECKOUT.value,
+                "status": AccessStatus.GRANTED.value,
                 "member_name": member.name,
                 "reason": "Check-out granted",
                 "duration_minutes": duration_minutes,
+            }
+        else:
+            log = CheckLog(
+                card_id=card_id,
+                member_name=member.name,
+                action=AccessAction.CHECKOUT,
+                status=AccessStatus.DENIED,
+                reason="This card ID has not checked in yet",
+                timestamp=now.isoformat(),
+            )
+            await self.repository.add_check_log(log)
+            logger.info(f"Check-out denied for {member.name} ({card_id})")
+            return {
+                "card_id": card_id,
+                "action": AccessAction.CHECKOUT.value,
+                "status": AccessStatus.DENIED.value,
+                "member_name": member.name,
+                "reason": "This card ID has not checked in yet",
+                "duration_minutes": None,
             }
