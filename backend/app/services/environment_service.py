@@ -95,6 +95,21 @@ class EnvironmentService:
             "reading": reading,
         }
 
+    async def set_fan_state(self, fan_on: bool, reason: str = "Manual control by Admin") -> EnvironmentReading:
+        """Manually set fan state and record reading."""
+        self.fan_currently_on = fan_on
+        latest = await self.get_latest_reading()
+        temp = latest.temperature if latest else 25.0
+        humidity = latest.humidity if latest else 50.0
+
+        reading = EnvironmentReading(
+            temperature=temp,
+            humidity=humidity,
+            fan_on=self.fan_currently_on,
+        )
+        await self.repository.add_environment_reading(reading)
+        return reading
+
     async def get_latest_reading(self) -> Optional[EnvironmentReading]:
         """Fetch latest environment reading."""
         return await self.repository.get_latest_reading()
@@ -102,3 +117,4 @@ class EnvironmentService:
     async def get_history(self, limit: int = 50):
         """Fetch historical readings."""
         return await self.repository.get_environment_readings(limit=limit)
+

@@ -64,3 +64,9 @@ async def test_environment_thresholds_and_fan_control(test_repo):
     assert res4["fan_command"] == "off"
     assert env_service.fan_currently_on is False
     assert len(mock_notifier.sent_alerts) == 2
+
+    # 5. Test manual set_fan_state override
+    manual_reading = await env_service.set_fan_state(True, reason="Manual admin override")
+    assert env_service.fan_currently_on is True
+    assert manual_reading.fan_on is True
+

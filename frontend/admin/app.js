@@ -67,6 +67,7 @@ async function initAdmin() {
   setupTabs();
   setupModal();
   setupLockerModal();
+  setupFanControl();
   setupWebSocket();
   await loadOverviewData();
 }
@@ -222,6 +223,7 @@ function renderOverviewEnvironment(data) {
 
   envValEl.textContent = `${tempStr} / ${humStr}`;
   fanSubEl.textContent = `Quạt thông gió: ${data.fan_on ? 'ĐANG BẬT' : 'ĐANG TẮT'}`;
+  updateAdminFanUI(data.fan_on);
 }
 
 function renderOverviewLockers(lockers) {
@@ -305,9 +307,18 @@ function renderMembersTable(members) {
 
   tbody.innerHTML = members.map(m => {
     const isExpired = new Date(m.membership_expiry) < new Date();
-    const statusBadge = isExpired
-      ? `<span class="badge badge-denied">Hết hạn</span>`
-      : `<span class="badge badge-granted">Còn hạn</span>`;
+    let statusBadge = '';
+    if (!m.is_active) {
+      statusBadge = `<span class="badge badge-warning">🔒 Đã khóa</span>`;
+    } else if (isExpired) {
+      statusBadge = `<span class="badge badge-denied">Hết hạn</span>`;
+    } else {
+      statusBadge = `<span class="badge badge-granted">Hoạt động</span>`;
+    }
+
+    const activeToggleBtn = m.is_active
+      ? `<button class="btn btn-secondary btn-sm toggle-active-btn" data-card="${escapeHtml(m.card_id)}" data-active="false" title="Khóa tài khoản">🔒 Khóa</button>`
+      : `<button class="btn btn-primary btn-sm toggle-active-btn" data-card="${escapeHtml(m.card_id)}" data-active="true" title="Mở khóa tài khoản">🔓 Mở khóa</button>`;
 
     return `
       <tr>
@@ -318,6 +329,7 @@ function renderMembersTable(members) {
         <td>${formatDate(m.membership_expiry)}</td>
         <td>${statusBadge}</td>
         <td>
+          ${activeToggleBtn}
           <button class="btn btn-secondary btn-sm edit-member-btn" data-card="${escapeHtml(m.card_id)}">✏️ Sửa</button>
           <button class="btn btn-secondary btn-sm reset-pw-btn" data-card="${escapeHtml(m.card_id)}" title="Reset mật khẩu về 123456">🔑 Reset MK</button>
           <button class="btn btn-danger btn-sm delete-member-btn" data-card="${escapeHtml(m.card_id)}">🗑️ Xoá</button>
@@ -327,6 +339,20 @@ function renderMembersTable(members) {
   }).join('');
 
   // Attach action listeners
+  document.querySelectorAll('.toggle-active-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const cardId = btn.getAttribute('data-card');
+      const targetActive = btn.getAttribute('data-active') === 'true';
+      try {
+        await GymTagAPI.toggleAdminMemberActive(cardId, targetActive);
+        showToast(targetActive ? `Đã mở khóa tài khoản ${cardId}` : `Đã khóa tài khoản ${cardId}`, 'success');
+        loadMembersData();
+      } catch (err) {
+        showToast(`Lỗi: ${err.message}`, 'error');
+      }
+    });
+  });
+
   document.querySelectorAll('.edit-member-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const cardId = btn.getAttribute('data-card');
@@ -368,6 +394,7 @@ function setupModal() {
     document.getElementById('modal-title').textContent = 'Thêm Thành Viên Mới';
     document.getElementById('m-card-id').readOnly = false;
     form.reset();
+    document.getElementById('m-active').checked = true;
     modal.classList.add('active');
   });
 
@@ -382,6 +409,7 @@ function setupModal() {
     const email = document.getElementById('m-email').value.trim();
     const phone = document.getElementById('m-phone').value.trim();
     const expiry = document.getElementById('m-expiry').value;
+    const isActive = document.getElementById('m-active').checked;
 
     try {
       await GymTagAPI.saveAdminMember({
@@ -390,7 +418,7 @@ function setupModal() {
         email: email || null,
         phone: phone || null,
         membership_expiry: expiry,
-        is_active: true
+        is_active: isActive
       });
 
       showToast(isEditMode ? 'Cập nhật thành viên thành công!' : 'Đã thêm thành viên mới!', 'success');
@@ -646,6 +674,7 @@ async function openEditModal(cardId) {
     document.getElementById('m-email').value = member.email || '';
     document.getElementById('m-phone').value = member.phone || '';
     document.getElementById('m-expiry').value = member.membership_expiry ? member.membership_expiry.split('T')[0] : '';
+    document.getElementById('m-active').checked = member.is_active !== false;
 
     document.getElementById('member-modal').classList.add('active');
   } catch (e) {
@@ -784,6 +813,45 @@ async function loadEnvironmentHistoryData() {
   }
 }
 
+function updateAdminFanUI(fanOn) {
+  const fanBadge = document.getElementById('admin-fan-badge');
+  if (fanBadge) {
+    fanBadge.textContent = fanOn ? '🌀 BẬT' : '🛑 TẮT';
+    fanBadge.className = fanOn ? 'badge badge-info' : 'badge badge-secondary';
+  }
+}
+
+function setupFanControl() {
+  const btnOn = document.getElementById('btn-fan-on');
+  const btnOff = document.getElementById('btn-fan-off');
+
+  if (btnOn) {
+    btnOn.addEventListener('click', async () => {
+      try {
+        await GymTagAPI.controlAdminFan('on');
+        showToast('Đã gửi lệnh BẬT quạt thông gió!', 'success');
+        updateAdminFanUI(true);
+        loadEnvironmentHistoryData();
+      } catch (e) {
+        showToast(`Lỗi điều khiển quạt: ${e.message}`, 'error');
+      }
+    });
+  }
+
+  if (btnOff) {
+    btnOff.addEventListener('click', async () => {
+      try {
+        await GymTagAPI.controlAdminFan('off');
+        showToast('Đã gửi lệnh TẮT quạt thông gió!', 'success');
+        updateAdminFanUI(false);
+        loadEnvironmentHistoryData();
+      } catch (e) {
+        showToast(`Lỗi điều khiển quạt: ${e.message}`, 'error');
+      }
+    });
+  }
+}
+
 function renderEnvironmentHistory(history) {
   const tbody = document.getElementById('env-history-tbody');
   if (!tbody || !history) return;
@@ -791,6 +859,10 @@ function renderEnvironmentHistory(history) {
   if (history.length === 0) {
     tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Chưa có dữ liệu lịch sử môi trường.</td></tr>`;
     return;
+  }
+
+  if (history.length > 0) {
+    updateAdminFanUI(history[0].fan_on);
   }
 
   tbody.innerHTML = history.map(item => {

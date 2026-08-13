@@ -37,6 +37,12 @@ class LockerStatusRequest(BaseModel):
     status: LockerStatus = Field(..., description="New status for locker")
 
 
+class FanControlRequest(BaseModel):
+    """Admin fan control command request model."""
+    command: str = Field(..., description="Fan command: 'on' or 'off'")
+
+
+
 async def _broadcast_admin_locker_update(locker_service):
     """Broadcast updated full lockers to admin WS clients & status to public WS clients."""
     all_lockers = await locker_service.get_all_lockers()
@@ -227,6 +233,24 @@ async def delete_admin_member(
         raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
 
 
+@router.post("/members/{card_id}/toggle-active", response_model=Member)
+async def toggle_admin_member_active(
+    card_id: str,
+    request: Request,
+    is_active: Optional[bool] = Query(None, description="Optional target active state; toggles if omitted"),
+    _: str = Depends(require_admin),
+):
+    """Toggle or set active status of a gym member (Admin Auth Required)."""
+    repo = request.app.state.repository
+    member = await repo.get_member(card_id)
+    if not member:
+        raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
+
+    new_active = not member.is_active if is_active is None else is_active
+    updated_member = member.model_copy(update={"is_active": new_active})
+    return await repo.save_member(updated_member)
+
+
 @router.get("/environment/history", response_model=List[EnvironmentReading])
 async def get_admin_environment_history(
     request: Request,
@@ -236,3 +260,43 @@ async def get_admin_environment_history(
     """Get detailed historical environment sensor readings (Admin Auth Required)."""
     env_service = request.app.state.environment_service
     return await env_service.get_history(limit=limit)
+
+
+@router.post("/environment/fan")
+async def control_admin_fan(
+    body: FanControlRequest,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Manually turn ventilation fan ON or OFF (Admin Auth Required)."""
+    if body.command not in ["on", "off"]:
+        raise HTTPException(status_code=400, detail="Command must be 'on' or 'off'.")
+
+    fan_on = (body.command == "on")
+    env_service = request.app.state.environment_service
+    mqtt_client = request.app.state.mqtt_client
+
+    # 1. Update service internal state & log reading
+    reading = await env_service.set_fan_state(fan_on, reason=f"Manual control ({body.command.upper()}) by Admin")
+
+    # 2. Publish MQTT command to ESP32
+    from app.mqtt.topics import Topics
+    import json
+    fan_payload = json.dumps({
+        "fan": body.command,
+        "reason": "Manual control by Admin"
+    })
+    mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
+
+    # 3. Broadcast WS update to all clients
+    await ws_manager.broadcast({
+        "type": "environment_update",
+        "data": reading.model_dump()
+    })
+
+    return {
+        "message": f"Đã gửi lệnh {body.command.upper()} quạt thông gió thành công!",
+        "fan_on": fan_on,
+        "reading": reading,
+    }
+

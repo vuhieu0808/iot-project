@@ -41,7 +41,7 @@ async def test_access_service_valid_checkin_checkout(test_repo):
     assert occ == 0
 
     # 2. First scan -> Check-in
-    res1 = await access_service.verify_card_scan(card_id)
+    res1 = await access_service.checkin(card_id)
     assert res1["status"] == AccessStatus.GRANTED.value
     assert res1["action"] == AccessAction.CHECKIN.value
     assert res1["member_name"] == "Nguyen Van A"
@@ -51,7 +51,7 @@ async def test_access_service_valid_checkin_checkout(test_repo):
     assert occ == 1
 
     # 3. Second scan -> Check-out
-    res2 = await access_service.verify_card_scan(card_id)
+    res2 = await access_service.checkout(card_id)
     assert res2["status"] == AccessStatus.GRANTED.value
     assert res2["action"] == AccessAction.CHECKOUT.value
     assert res2["duration_minutes"] is not None
@@ -77,7 +77,7 @@ async def test_access_service_expired_member(test_repo):
     )
     await test_repo.save_member(member)
 
-    res = await access_service.verify_card_scan(card_id)
+    res = await access_service.checkin(card_id)
     assert res["status"] == AccessStatus.DENIED.value
     assert "expired" in res["reason"].lower()
 
@@ -87,6 +87,7 @@ async def test_access_service_unknown_card(test_repo):
     """Test unknown card scan returns DENIED."""
     access_service = AccessService(repository=test_repo)
 
-    res = await access_service.verify_card_scan("CARD_UNKNOWN_99")
+    res = await access_service.checkin("CARD_UNKNOWN_99")
     assert res["status"] == AccessStatus.DENIED.value
     assert res["member_name"] == "Unknown"
+

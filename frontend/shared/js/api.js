@@ -107,6 +107,11 @@ export const GymTagAPI = {
     method: 'POST',
     body: JSON.stringify(memberData),
   }),
+  toggleAdminMemberActive: (cardId, isActive = null) => {
+    let url = `/api/admin/members/${encodeURIComponent(cardId)}/toggle-active`;
+    if (isActive !== null) url += `?is_active=${isActive}`;
+    return request(url, { method: 'POST' });
+  },
   resetAdminMemberPassword: (cardId) => request(`/api/admin/members/${encodeURIComponent(cardId)}/reset-password`, {
     method: 'POST',
   }),
@@ -115,4 +120,9 @@ export const GymTagAPI = {
   }),
 
   getAdminEnvironmentHistory: (limit = 50) => request(`/api/admin/environment/history?limit=${limit}`),
+  controlAdminFan: (command) => request('/api/admin/environment/fan', {
+    method: 'POST',
+    body: JSON.stringify({ command }),
+  }),
 };
+

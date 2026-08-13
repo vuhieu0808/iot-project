@@ -1,6 +1,6 @@
 """REST API routes for member management."""
 
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, status
 from app.models.member import Member, MemberCreate
 
@@ -40,3 +40,21 @@ async def delete_member(card_id: str, request: Request):
     deleted = await repo.delete_member(card_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
+
+
+@router.post("/{card_id}/toggle-active", response_model=Member)
+async def toggle_member_active(
+    card_id: str,
+    request: Request,
+    is_active: Optional[bool] = None,
+):
+    """Toggle or set active status of a gym member."""
+    repo = request.app.state.repository
+    member = await repo.get_member(card_id)
+    if not member:
+        raise HTTPException(status_code=404, detail=f"Member with card_id '{card_id}' not found.")
+
+    new_active = not member.is_active if is_active is None else is_active
+    updated_member = member.model_copy(update={"is_active": new_active})
+    return await repo.save_member(updated_member)
+

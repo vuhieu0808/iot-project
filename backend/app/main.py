@@ -22,6 +22,10 @@ from app.api import (
     public_router,
     user_router,
     admin_router,
+    members_router,
+    environment_router,
+    lockers_router,
+    logs_router,
     ws_router,
 )
 
@@ -127,6 +131,10 @@ app.add_middleware(
 app.include_router(public_router)
 app.include_router(user_router)
 app.include_router(admin_router)
+app.include_router(members_router)
+app.include_router(environment_router)
+app.include_router(lockers_router)
+app.include_router(logs_router)
 app.include_router(ws_router)
 
 # Serve Frontend static files seamlessly
