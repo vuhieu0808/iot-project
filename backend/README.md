@@ -1,6 +1,6 @@
 # GymTag Backend System
 
-Python backend service for **GymTag** - RFID Gym Access & Environment Control System. Replaces Node-RED to handle MQTT messaging with ESP32, business logic processing, database persistence (Firebase Realtime Database / SQLite fallback), Telegram alert notifications, and real-time Web Dashboard data streaming via WebSockets.
+Python backend service for **GymTag** - RFID Gym Access & Environment Control System. Replaces Node-RED to handle MQTT messaging with ESP32, business logic processing, database persistence (Firebase Realtime Database), Telegram alert notifications, and real-time Web Dashboard data streaming via WebSockets.
 
 ---
 
@@ -28,8 +28,7 @@ backend/
 │   │   └── notification_service.py  # Telegram Bot API notification client
 │   ├── repositories/
 │   │   ├── base.py                  # Abstract base repository interface
-│   │   ├── firebase_repo.py         # Firebase Realtime Database repository
-│   │   └── sqlite_repo.py           # SQLite asynchronous repository (fallback)
+│   │   └── firebase_repo.py         # Firebase Realtime Database repository
 │   ├── api/
 │   │   ├── routes_members.py        # REST API endpoints for members
 │   │   ├── routes_lockers.py        # REST API endpoints for locker state
@@ -53,7 +52,7 @@ backend/
 
 - **Python**: 3.11+
 - **MQTT Broker**: `test.mosquitto.org` (public testing broker) or local Mosquitto broker
-- **Dependencies**: `fastapi`, `uvicorn`, `paho-mqtt`, `httpx`, `pydantic-settings`, `firebase-admin`, `aiosqlite`
+- **Dependencies**: `fastapi`, `uvicorn`, `paho-mqtt`, `httpx`, `pydantic-settings`, `firebase-admin`
 
 ---
 
@@ -99,20 +98,13 @@ HUMIDITY_THRESHOLD=80.0
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
 
-# Database Selection
-# Options: 'firebase' or 'sqlite'
-DB_TYPE=sqlite
-SQLITE_DB_PATH=gymtag.db
-
-# Firebase configuration (Required if DB_TYPE=firebase)
-FIREBASE_CREDENTIALS_PATH=serviceAccountKey.json
+# Firebase Realtime Database Configuration
+FIREBASE_CREDENTIALS_PATH=firebase-admin-sdk.json
 FIREBASE_DATABASE_URL=https://your-project-id-default-rtdb.firebaseio.com/
 
 # Locker System
 LOCKER_COUNT=5
 ```
-
-> **Note on Database**: If `DB_TYPE=firebase` is set but the `serviceAccountKey.json` credentials file is missing, the backend will automatically fallback to local `sqlite` (`gymtag.db`).
 
 ### 3. Run the Backend Application
 

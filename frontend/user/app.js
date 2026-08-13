@@ -1,4 +1,5 @@
 import { GymTagAPI } from '../shared/js/api.js?v=5.0';
+import { wsClient } from '../shared/js/websocket.js?v=5.0';
 import { formatTime, formatDate, formatDuration, escapeHtml, showToast } from '../shared/js/utils.js?v=5.0';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -6,8 +7,49 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initUserPortal() {
+  setupWebSocket();
   setupAuth();
   setupChangePasswordModal();
+}
+
+let updateDebounceTimer = null;
+
+function setupWebSocket() {
+  const indicatorEl = document.getElementById('ws-indicator');
+  const statusTextEl = document.getElementById('ws-status-text');
+
+  if (indicatorEl && statusTextEl) {
+    wsClient.onStatusChange((status) => {
+      indicatorEl.className = 'ws-indicator';
+      if (status === 'connected') {
+        indicatorEl.classList.add('connected');
+        statusTextEl.textContent = 'Realtime Live';
+      } else if (status === 'connecting') {
+        statusTextEl.textContent = 'Đang kết nối...';
+      } else {
+        indicatorEl.classList.add('disconnected');
+        statusTextEl.textContent = 'Mất kết nối';
+      }
+    });
+  }
+
+  // Trigger automatic DOM reload when realtime locker or checkin events occur
+  const triggerUserDashboardReload = () => {
+    const token = sessionStorage.getItem('gymtag_user_token');
+    if (token) {
+      if (updateDebounceTimer) clearTimeout(updateDebounceTimer);
+      updateDebounceTimer = setTimeout(() => {
+        loadUserDashboard();
+      }, 300);
+    }
+  };
+
+  wsClient.on('locker_status_update', triggerUserDashboardReload);
+  wsClient.on('locker_event', triggerUserDashboardReload);
+  wsClient.on('checkin_event', triggerUserDashboardReload);
+  wsClient.on('occupancy_update', triggerUserDashboardReload);
+
+  wsClient.connect('/ws/public');
 }
 
 function setupAuth() {

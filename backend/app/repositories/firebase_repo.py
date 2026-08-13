@@ -23,7 +23,7 @@ class FirebaseRepository(BaseRepository):
 
     def __init__(
         self,
-        credentials_path: str = "serviceAccountKey.json",
+        credentials_path: str = "firebase-admin-sdk.json",
         database_url: Optional[str] = None,
         default_locker_count: int = 5,
     ):
