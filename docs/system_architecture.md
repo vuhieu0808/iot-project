@@ -2,85 +2,165 @@
 
 ## 1. Overview
 
-GymTag is an IoT-based Gym Access & Facility Management system designed to replace legacy gateway solutions (e.g. Node-RED) with a clean, extensible, asynchronous Python backend.
+**GymTag** is an IoT-based Smart Gym Access and Facility Management Platform designed with a modern, decoupled, asynchronous event-driven architecture.
 
-The system manages RFID card authentication at main entry doors and locker areas, monitors ambient temperature and relative humidity via DHT22 sensors, controls automated fan relays, sends real-time Telegram alerts, and feeds live telemetry to a Web Dashboard via WebSockets.
+The platform coordinates edge microcontrollers (ESP32), an asynchronous Python backend (FastAPI), Google Firebase Realtime Database, Telegram Bot notification services, and responsive web portals providing live telemetry via WebSockets.
 
 ---
 
 ## 2. System Architecture Diagram
 
 ```
-+-----------------------------------------------------------------------+
-|                            ESP32 FIRMWARE                             |
-|  - RFID RC522 (Door Entrance Check-in/Check-out)                      |
-|  - RFID RC522 (Locker Area Assignment/Release)                        |
-|  - DHT22 (Temperature & Humidity Sensor)                              |
-|  - Servo Motors (Door Lock & Locker Release)                          |
-|  - Relay Module (Ventilation Fan Control)                             |
-+-----------------------------------------------------------------------+
-                                   | |
-                           MQTT Protocol (JSON)
-                                   | |
-                                   v v
-+-----------------------------------------------------------------------+
-|                            MQTT BROKER                                |
-|  - Mosquitto Local / test.mosquitto.org (Port 1883)                   |
-+-----------------------------------------------------------------------+
-                                   | |
-                           paho-mqtt (Async Bridge)
-                                   | |
-                                   v v
-+-----------------------------------------------------------------------+
-|                         PYTHON BACKEND SERVICE                        |
-|  FastAPI Framework (Python 3.11+)                                     |
-|                                                                       |
-|  [MQTT Handler] ----> [Services Layer] ----> [Repository Layer]       |
-|                             |                      |                  |
-|                 +-----------+----------+           |                  |
-|                 |                      |           v                  |
-|                 v                      v    +----------------------+  |
-|         [Telegram Notifier]    [WebSocket]  | Firebase Realtime DB |  |
-|         (httpx HTTP API)       (Manager)    +----------------------+  |
-+-----------------------------------------------------------------------+
-                                         |
-                                  WebSocket / REST
-                                         |
-                                         v
-+-----------------------------------------------------------------------+
-|                            WEB DASHBOARD                              |
-|  - Real-time occupancy counter                                        |
-|  - Dynamic Locker status grid                                         |
-|  - Ambient Temperature / Humidity telemetry                           |
-|  - Live RFID Access Log Feed                                          |
-+-----------------------------------------------------------------------+
++-----------------------------------------------------------------------------------+
+|                              ESP32 EDGE HARDWARE                                  |
+|  - RFID RC522 Reader #1 (Entrance & Exit Door)                                    |
+|  - RFID RC522 Reader #2 (Smart Locker Station)                                    |
+|  - DHT22 (Temperature & Humidity Sensor - GPIO 15)                                |
+|  - Servo Motor (Door Locking Actuator - GPIO 13)                                  |
+|  - Relay Module (Ventilation Fan Control - GPIO 12)                               |
+|  - LCD 16x2 I2C Display                                                           |
++-----------------------------------------------------------------------------------+
+                                         | |
+                                 MQTT Protocol (JSON)
+                                 Broker: test.mosquitto.org:1883
+                                         | |
+                                         v v
++-----------------------------------------------------------------------------------+
+|                              PYTHON BACKEND SERVICE                               |
+|  FastAPI Framework (Python 3.11+)                                                 |
+|                                                                                   |
+|  +-----------------------------------------------------------------------------+  |
+|  | MQTT Handler & Async Bridge (Translates thread MQTT callbacks -> Async IO)  |  |
+|  +-----------------------------------------------------------------------------+  |
+|                                        |                                          |
+|                                        v                                          |
+|  +-----------------------------------------------------------------------------+  |
+|  |                             SERVICES LAYER                                  |  |
+|  |  - AccessService: Check-in / Check-out, Membership Validation, Duration     |  |
+|  |  - LockerService: Smart Locker Allocation & Release Logic                   |  |
+|  |  - EnvironmentService: Dynamic Thresholds, Automated Fan Control Logic     |  |
+|  |  - OccupancyService: Live Facility Head-Count Calculation                   |  |
+|  |  - NotificationService: Telegram Bot Emergency Alert Dispatcher            |  |
+|  +-----------------------------------------------------------------------------+  |
+|                   |                         |                      |              |
+|                   v                         v                      v              |
+|       +-----------------------+  +---------------------+  +--------------------+  |
+|       | Telegram Alert Engine |  |  WebSocket Manager  |  |  Repository Layer  |  |
+|       | (httpx Async Client)  |  | (Public / Admin WS) |  | (Firebase RTDB)    |  |
+|       +-----------------------+  +---------------------+  +--------------------+  |
++-----------------------------------------------------------------------------------+
+                                             | |
+                                    REST API & WebSockets
+                                             | |
+                                             v v
++-----------------------------------------------------------------------------------+
+|                               FRONTEND WEB PORTALS                                |
+|                                                                                   |
+|   +-----------------------+ +-----------------------+ +-----------------------+   |
+|   |    PUBLIC MONITOR     | |   MEMBER USER PORTAL  | |  ADMIN CONTROL PANEL  |   |
+|   |  - Real-time head count| |  - Member Login & Pwd | |  - Member management  |   |
+|   |  - Locker status grid | |  - Personal profile   | |  - Locker force control|  |
+|   |  - Live Temp/Humidity | |  - Workout duration   | |  - Dynamic Thresholds |   |
+|   |                       | |  - Check-in history   | |  - Manual Fan Toggle  |   |
+|   +-----------------------+ +-----------------------+ +-----------------------+   |
++-----------------------------------------------------------------------------------+
 ```
 
 ---
 
-## 3. Core Component Responsibilities
+## 3. Core Subsystems & Responsibilities
 
-### 3.1 Hardware (ESP32)
-- Scans RFID tags at the main entrance door and sends access requests.
-- Scans RFID tags at the locker area and sends locker requests.
-- Reads ambient temperature and humidity from DHT22 every 5–10 seconds.
-- Actuates door lock servos based on access authorization responses.
-- Toggles the cooling fan relay based on backend fan control commands.
+### 3.1 Edge Hardware Subsystem (ESP32)
+- **Entrance Door Access**: Reads RFID UID from RC522 #1, requests authentication from the backend over `gymtag/door/checkin_request`, and actuates the door servo on positive confirmation.
+- **Smart Locker Terminal**: Reads RFID UID from RC522 #2, communicates with `gymtag/locker/request`, and prompts locker assignment / release on the LCD.
+- **Environment Telemetry**: Reads ambient temperature and relative humidity from DHT22 every 5–10 seconds and publishes readings to `gymtag/environment/reading`.
+- **Fan Actuation**: Listens to `gymtag/environment/fan_control` and switches the relay on GPIO 12 HIGH/LOW accordingly.
 
-### 3.2 MQTT Broker
-- Serves as the lightweight message bus between ESP32 and Python backend.
-- Decouples hardware execution from server processing logic.
+### 3.2 Messaging & Async Bridge (`app/mqtt/`)
+- Uses `paho-mqtt` to maintain persistent connection with the MQTT broker.
+- Uses `asyncio.run_coroutine_threadsafe()` to bridge synchronous MQTT client message callbacks seamlessly into FastAPI's asynchronous event loop.
 
-### 3.3 Python Backend Application
-- **MQTT Layer (`app/mqtt/`)**: Subscribes to incoming request topics, parses JSON payloads, bridges thread-safe execution into FastAPI's asyncio event loop, and publishes decision responses.
-- **Service Layer (`app/services/`)**:
-  - `AccessService`: Verifies membership validity, registration status, expiration dates, determines check-in vs check-out, and calculates session workout duration.
-  - `LockerService`: Dynamically assigns the lowest available empty locker slot or releases an existing locker.
-  - `EnvironmentService`: Evaluates temperature/humidity against thresholds (32.0 C / 80.0%), triggers automatic fan relay commands, and sends Telegram alerts.
-  - `OccupancyService`: Calculates the current occupant count inside the facility.
-  - `NotificationService`: Sends HTML-formatted alert messages to a Telegram Chat ID via Bot API using `httpx`.
-- **Repository Layer (`app/repositories/`)**: Implements an abstract repository pattern (`BaseRepository`) with Firebase Realtime Database persistence (`FirebaseRepository`).
-- **API & Realtime Layer (`app/api/`)**: Provides REST endpoints for CRUD operations and WebSockets (`/ws`) for live UI updates.
+### 3.3 Business Logic Services Layer (`app/services/`)
+- **`AccessService`**: Validates card existence, checks account active flag (`is_active`) and membership expiry date. Automatically determines whether an action is a `checkin` or `checkout`. When checking out, computes cumulative workout duration in minutes.
+- **`LockerService`**: Manages locker state transitions (`vacant`, `occupied`, `broken`). Ensures one-locker-per-member constraint, assigns the lowest vacant index, and releases assigned lockers when returned.
+- **`EnvironmentService`**: Evaluates DHT22 readings against dynamic thresholds. If temperature or humidity breaches limits, commands the fan ON and fires Telegram notifications. Manages dynamic threshold updates at runtime and supports manual fan override.
+- **`OccupancyService`**: Derives current facility head-count based on real-time check-in and check-out logs.
+- **`NotificationService`**: Dispatches formatted HTML alert messages to Telegram chats via Bot API.
 
-### 3.4 Web Dashboard
-- Single-page interface providing live metrics, locker allocation grid, environmental readings, and real-time event logging.
+### 3.4 Data & Persistence Layer (`app/repositories/`)
+- **`BaseRepository`**: Abstract base class defining all database interactions.
+- **`FirebaseRepository`**: Production implementation utilizing the Google Firebase Admin Python SDK to persist members, lockers, check logs, environment history, and dynamic threshold configurations in real time.
+- **`InMemoryRepository`**: Test mock implementation used by pytest test suites for fast and isolated unit tests.
+
+### 3.5 Security & 3-Tier Access Control
+- **Public Access**: Unauthenticated access to public gym statistics and locker occupancy status (PII like card IDs and timestamps are omitted).
+- **User Member Access**: Authenticated via personal JWT tokens generated upon Card ID + password verification (`POST /api/user/login`). Passwords are encrypted using salted `bcrypt` hashing.
+- **Admin Access**: Authenticated via Admin JWT tokens generated upon Admin credential verification (`POST /api/admin/login`). Grants full access to member CRUD, locker overrides, system activity logs, manual fan toggles, and threshold adjustments.
+
+### 3.6 Real-Time WebSocket Streaming (`app/api/websocket.py`)
+- Maintains isolated connection pools for **Public** and **Admin** clients.
+- Public channel receives generalized updates (`occupancy_update`, `locker_status_update`, `environment_update`).
+- Admin channel receives privileged events (`checkin_event`, `checkout_event`, `locker_event`, `threshold_update`, `environment_update`).
+
+---
+
+## 4. Key Execution Workflows
+
+### 4.1 RFID Access Verification Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Member
+    participant ESP32
+    participant MQTT as MQTT Broker
+    participant Backend as FastAPI Backend
+    participant Firebase as Firebase RTDB
+    participant WS as WebSocket Clients
+
+    Member->>ESP32: Swipes RFID Card
+    ESP32->>MQTT: Pub: gymtag/door/checkin_request {"card_id": "CARD001"}
+    MQTT->>Backend: Dispatch to AccessService
+    Backend->>Firebase: Query Member Profile & Active Status
+    alt Card Not Found or Expired or Inactive
+        Backend->>MQTT: Pub: gymtag/door/checkin_response {status: "denied", reason: "..."}
+        MQTT->>ESP32: Denied Notification
+        ESP32->>Member: Buzzer Alert / LCD Denied Message
+    else Valid Member
+        Backend->>Firebase: Record CheckLog (checkin or checkout)
+        Backend->>MQTT: Pub: gymtag/door/checkin_response {status: "granted", action: "...", duration: ...}
+        MQTT->>ESP32: Granted Notification
+        ESP32->>ESP32: Rotate Servo 90° (5s) -> 0°
+        Backend->>WS: Broadcast occupancy_update & checkin_event
+    end
+```
+
+### 4.2 Dynamic Environment Threshold & Automated Fan Control Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Admin as Admin Dashboard
+    participant DHT22 as DHT22 Sensor (ESP32)
+    participant MQTT as MQTT Broker
+    participant Backend as FastAPI Backend
+    participant Firebase as Firebase RTDB
+    participant Telegram as Telegram Bot
+
+    Note over Admin,Backend: Admin Updates Thresholds
+    Admin->>Backend: PUT /api/admin/environment/thresholds {temp: 30.5, hum: 75.0}
+    Backend->>Firebase: Save settings/environment_thresholds
+    Backend->>Admin: Broadcast WS threshold_update
+
+    Note over DHT22,Backend: Sensor Telemetry Loop
+    DHT22->>MQTT: Pub: gymtag/environment/reading {temp: 31.0, hum: 76.0}
+    MQTT->>Backend: Dispatch to EnvironmentService
+    Backend->>Backend: Evaluate against dynamic thresholds (31.0 > 30.5)
+    Backend->>Firebase: Save EnvironmentReading
+    alt Threshold Breached & Fan is OFF
+        Backend->>MQTT: Pub: gymtag/environment/fan_control {"fan": "on", "reason": "..."}
+        MQTT->>DHT22: ESP32 sets Relay GPIO 12 HIGH
+        Backend->>Telegram: Send Alert Notification Message
+        Backend->>Admin: Broadcast WS environment_update (fan_on: true)
+    end
+```

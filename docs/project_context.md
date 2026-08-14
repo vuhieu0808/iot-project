@@ -1,142 +1,135 @@
-# GymTag - Hệ thống quản lý phòng gym thông minh bằng RFID
+# GymTag - Hệ thống Quản lý Phòng Gym Thông minh Ứng dụng IoT & RFID
 
-## Thông tin chung
+## 1. Thông tin chung
 
-- Đồ án môn học: Vật lý cho Công nghệ thông tin
-- Trường: Đại học Khoa học Tự nhiên, ĐHQG TP. Hồ Chí Minh, Khoa Công nghệ thông tin
-- Nhóm 6: Vũ Trần Minh Hiếu (24127003), Hoàng Đức Thịnh (24127240), Trần Viết Bảo (24127270)
+- **Đồ án môn học**: Vật lý cho Công nghệ thông tin
+- **Trường**: Trường Đại học Khoa học Tự nhiên, ĐHQG TP. Hồ Chí Minh
+- **Khoa**: Công nghệ thông tin
+- **Nhóm sinh viên thực hiện (Nhóm 6)**:
+  - **Vũ Trần Minh Hiếu** - MSSV: `24127003`
+  - **Hoàng Đức Thịnh** - MSSV: `24127240`
+  - **Trần Viết Bảo** - MSSV: `24127270`
+- **Proposal đồ án**: [Proposal Document](../24127003_24127240_24127270.pdf)
 
-## Mục đích
+---
 
-Xây dựng một mô hình phòng gym thông minh ứng dụng công nghệ IoT và RFID để
-giải quyết các hạn chế của quản lý thủ công: khó kiểm soát lượt ra vào,
-mất thời gian quản lý tủ khóa (locker), không theo dõi được điều kiện môi
-trường phòng tập theo thời gian thực.
+## 2. Mục đích và Ý nghĩa Đề tài
 
-Hệ thống dùng thẻ RFID để nhận diện thành viên tại cửa ra vào và khu vực
-locker, kết hợp cảm biến môi trường và dashboard web để giám sát và cảnh
-báo tự động.
+Trong các phòng gym truyền thống, việc quản lý thành viên ra vào, cấp phát chìa khóa tủ đồ (locker) và giám sát môi trường không khí thường thực hiện thủ công, dễ gây ùn tắc tại quầy lễ tân, nhầm lẫn tủ đồ và thiếu khả năng điều hòa môi trường tự động khi phòng tập quá tải.
 
-## Phạm vi hiện tại của đồ án
+**GymTag** giải quyết triệt để các vấn đề trên thông qua giải pháp IoT toàn diện:
+1. **Kiểm soát ra vào tự động bằng thẻ RFID**: Tự động nhận diện thành viên, kiểm tra trạng thái kích hoạt và thời hạn gói tập, điều khiển khóa cửa servo, tính toán chính xác thời lượng tập luyện cho từng buổi tập.
+2. **Cấp phát & thu hồi tủ đồ thông minh (Smart Locker)**: Quẹt thẻ tại trạm locker để nhận tủ trống đầu tiên hoặc mở khóa trả tủ tự động, ngăn ngừa việc chiếm dụng tủ trái phép.
+3. **Giám sát & Điều hòa vi khí hậu tự động**: Đọc dữ liệu nhiệt độ và độ ẩm từ cảm biến DHT22 theo thời gian thực. Tự động bật quạt thông gió qua relay khi môi trường vượt ngưỡng cho phép, đồng thời gửi cảnh báo tức thì về Telegram của người quản lý.
+4. **Hệ thống Web Dashboard phân quyền 3 tầng**:
+   - **Màn hình giám sát công cộng (Public Display)**: Hiển thị sĩ số phòng tập, sơ đồ locker và chỉ số môi trường.
+   - **Cổng thông tin hội viên (User Portal)**: Cho phép hội viên tra cứu hạn thẻ, thời lượng tập, lịch sử vào ra và đổi mật khẩu cá nhân.
+   - **Bảng điều khiển quản trị (Admin Portal)**: Quản lý thành viên, điều khiển tủ đồ, xem log sự kiện realtime, bật/tắt quạt thủ công và cấu hình ngưỡng nhiệt độ & độ ẩm linh hoạt (Dynamic Thresholds).
 
-Đồ án tập trung vào việc dựng mô hình phần cứng mô phỏng (không phải hệ
-thống thương mại hoàn chỉnh), gồm 1 ESP32 trung tâm giao tiếp qua MQTT với
-một backend xử lý logic và lưu trữ dữ liệu, hiển thị qua dashboard web.
+---
 
-## Chức năng chính
-
-Các chức năng liên quan trực tiếp đến kiểm soát ra vào và tài sản (locker),
-đây là phần cốt lõi bắt buộc phải có:
-
-1. Check-in tại cửa ra vào: quẹt thẻ RFID, hệ thống xác nhận thành viên,
-   mở cửa (servo), hiển thị lời chào kèm tên trên LCD, ghi nhận giờ vào.
-2. Check-out tại cửa ra vào: quẹt lại thẻ khi ra về, mở cửa, ghi nhận giờ
-   ra và tính thời gian tập luyện.
-3. Kiểm tra hạn thành viên khi quẹt thẻ: đối chiếu ngày hết hạn trong cơ sở
-   dữ liệu, cho vào nếu còn hạn, từ chối kèm cảnh báo (LED đỏ, buzzer) nếu
-   hết hạn.
-4. Quẹt thẻ lấy locker: tìm locker trống đầu tiên, gán cho thẻ, mở khóa
-   locker đó.
-5. Quẹt thẻ trả locker: xác nhận đúng chủ sở hữu, mở khóa để lấy đồ, cập
-   nhật locker về trạng thái trống.
-
-## Chức năng phụ
-
-Các chức năng hỗ trợ giám sát và trải nghiệm, không phải yêu cầu bắt buộc
-để hệ thống vận hành cơ bản nhưng làm rõ giá trị ứng dụng IoT của đề tài:
-
-6. Xem sơ đồ locker trống/đầy trên dashboard web theo thời gian thực.
-7. Giám sát nhiệt độ, độ ẩm phòng gym bằng cảm biến DHT22, hiển thị realtime
-   trên dashboard.
-8. Cảnh báo môi trường bất thường: khi nhiệt độ hoặc độ ẩm vượt ngưỡng cấu
-   hình (mặc định 32 độ C, 80% độ ẩm), tự động bật quạt qua relay và gửi
-   cảnh báo qua Telegram hoặc email.
-9. Đếm số người đang có mặt trong phòng gym theo thời gian thực (chênh
-   lệch giữa số lượt check-in và check-out), hiển thị trên dashboard.
-
-## Kiến trúc hệ thống
+## 3. Kiến trúc Tổng thể & Công nghệ Sử dụng
 
 ```
-Phần cứng (ESP32 + cảm biến/thiết bị)
-        MQTT (publish/subscribe)
-Backend xử lý logic và lưu trữ
-        REST API / WebSocket
-Dashboard web hiển thị realtime
++--------------------------------------------------------------------------------+
+|                             LỚP THIẾT BỊ PHẦN CỨNG                             |
+|  - ESP32 DevKit V1 (Vi điều khiển trung tâm)                                    |
+|  - Cảm biến DHT22 (Nhiệt độ & Độ ẩm - GPIO 15)                                  |
+|  - Module Relay / Quạt thông gió (GPIO 12)                                     |
+|  - Đầu đọc RFID RC522 Cửa (SPI GPIO 5) & Servo Khóa cửa (GPIO 13)              |
+|  - Đầu đọc RFID RC522 Locker (SPI GPIO 21) & Màn hình LCD I2C                   |
++--------------------------------------------------------------------------------+
+                                       | |
+                               MQTT Protocol (JSON)
+                               Broker: test.mosquitto.org (Port 1883)
+                                       | |
+                                       v v
++--------------------------------------------------------------------------------+
+|                             LỚP BACKEND DỊCH VỤ                                |
+|  - Ngôn ngữ: Python 3.11+ / Framework: FastAPI (Async IO)                      |
+|  - Cầu nối MQTT: paho-mqtt kết nối bất đồng bộ với Event Loop                  |
+|  - Cơ sở dữ liệu: Google Firebase Realtime Database (Admin SDK)                |
+|  - Xác thực & Bảo mật: JWT Token 2 tầng (Admin Role & Member Role)             |
+|  - Gửi cảnh báo: Telegram Bot API (httpx Async Client)                         |
+|  - Đẩy dữ liệu Real-time: WebSockets Manager phân kênh (Public & Admin)        |
++--------------------------------------------------------------------------------+
+                                       | |
+                                REST API & WebSockets
+                                       | |
+                                       v v
++--------------------------------------------------------------------------------+
+|                             LỚP GIAO DIỆN NGƯỜI DÙNG                           |
+|  1. Public Dashboard: Màn hình theo dõi công cộng, hiển thị sĩ số & locker     |
+|  2. User Member Portal: Đăng nhập hội viên, tra cứu thông tin cá nhân          |
+|  3. Admin Dashboard: Quản lý hội viên, tủ đồ, log ra vào, chỉnh ngưỡng quạt   |
++--------------------------------------------------------------------------------+
 ```
 
-Ban đầu proposal đề xuất dùng Node-RED làm lớp xử lý trung gian và dashboard
-có sẵn. Quyết định hiện tại là thay Node-RED bằng backend viết tay bằng
-Python (FastAPI, paho-mqtt), lý do: dễ kiểm soát logic nghiệp vụ phức tạp
-(tính thời gian tập, kiểm tra hạn, gán locker), dễ tách lớp rõ ràng để nộp
-báo cáo, và nhóm quen thuộc với Python hơn.
+---
 
-## Danh sách thiết bị phần cứng
-
-| Thiết bị | Số lượng | Chức năng |
-|---|---|---|
-| ESP32 DevKit V1 | 1 | Bộ xử lý trung tâm, kết nối WiFi/MQTT |
-| Cảm biến DHT22 | 1 | Đo nhiệt độ, độ ẩm phòng gym |
-| Màn hình LCD I2C 16x2 | 2 | Hiển thị thông tin cho người dùng |
-| LED đơn (xanh/đỏ) | 1 túi | Hiển thị trạng thái cho phép/từ chối |
-| Breadboard, dây cắm | 1 bộ | Dụng cụ lắp mạch |
-| Nguồn 12V | 1 | Cấp nguồn cho ESP32 và module |
-| Thẻ RFID | 5 | Thẻ nhận diện thành viên |
-| MFRC522 RFID Reader | 5 | Đầu đọc thẻ RFID (cửa chính, locker) |
-| Servo SG90 | 5 | Khóa cửa, khóa locker |
-| Relay Module | 1 | Bật quạt tự động |
-| Quạt mini | 1 | Thiết bị làm mát mô phỏng |
-
-## Mô phỏng và phát triển
-
-- Phần firmware ESP32 được viết bằng Arduino framework, có thể mô phỏng
-  trên Wokwi (wokwi.com) trước khi lắp phần cứng thật, dùng để test logic
-  đọc RFID, điều khiển servo, đọc DHT22, điều khiển relay mà không cần chờ
-  linh kiện.
-- Do giới hạn mô phỏng RFID-RC522 trên Wokwi (chỉ mô phỏng được 1 UID cấu
-  hình sẵn cho mỗi module ảo, không có UI Node-RED bên trong), bản mô phỏng
-  ban đầu gộp phần "cửa chính" làm trọng tâm demo, phần locker và tích hợp
-  MQTT/Telegram/Firebase thật sẽ được bổ sung dần.
-- Backend Python được tổ chức theo từng lớp trách nhiệm rõ ràng: models,
-  repositories (Firebase Realtime Database), services (logic nghiệp vụ), mqtt
-  (client và handler), api (REST và WebSocket cho dashboard).
-
-## Chuẩn đặt tên topic MQTT
+## 4. Cấu trúc Thư mục Dự án
 
 ```
-gymtag/door/checkin_request      ESP32 gửi lên backend khi quẹt thẻ ở cửa
-gymtag/door/checkin_response     backend gửi xuống ESP32, kết quả cho vào hay không
-gymtag/locker/request            ESP32 gửi lên backend khi quẹt thẻ ở locker
-gymtag/locker/response           backend gửi xuống ESP32, số locker được gán hoặc lệnh mở khóa trả
-gymtag/environment/reading       ESP32 gửi lên backend, dữ liệu nhiệt độ/độ ẩm
-gymtag/environment/fan_control   backend gửi xuống ESP32, lệnh bật/tắt quạt
+Project2/
+├── backend/                        # Backend Python FastAPI
+│   ├── app/
+│   │   ├── api/                    # REST API routes & Auth
+│   │   │   ├── auth.py             # JWT Token & Password Hash
+│   │   │   ├── routes_admin.py     # Admin management APIs
+│   │   │   ├── routes_public.py    # Public info APIs
+│   │   │   ├── routes_user.py      # Member personal APIs
+│   │   │   └── websocket.py        # Real-time WebSocket manager
+│   │   ├── models/                 # Pydantic data schemas
+│   │   ├── mqtt/                   # MQTT Client, Handlers & Topics
+│   │   ├── repositories/           # Abstract Base & Firebase RTDB Repo
+│   │   ├── services/               # Core business logic services
+│   │   │   ├── access_service.py   # Check-in/out & Member validation
+│   │   │   ├── environment_service.py # DHT22, Dynamic Thresholds & Fan logic
+│   │   │   ├── locker_service.py   # Smart locker allocation
+│   │   │   ├── notification_service.py # Telegram bot alerts
+│   │   │   └── occupancy_service.py # Gym head-count counter
+│   │   ├── config.py               # App configuration (.env)
+│   │   └── main.py                 # FastAPI application factory & Lifespan
+│   ├── tests/                      # Pytest automated test suite
+│   │   ├── test_access_service.py
+│   │   ├── test_environment_service.py
+│   │   ├── test_locker_service.py
+│   │   ├── test_occupancy_service.py
+│   │   └── test_threshold_api.py
+│   └── requirements.txt            # Python dependencies
+├── esp32/                          # Firmware ESP32 & Wokwi Simulation
+│   ├── src/
+│   │   └── main.cpp                # Arduino C++ source code
+│   ├── diagram.json                # Wokwi simulation schematic
+│   ├── platformio.ini              # PlatformIO config
+│   └── wokwi.toml                  # Wokwi run settings
+├── frontend/                       # Web Client Application
+│   ├── admin/                      # Admin Management Portal (index.html, app.js, style.css)
+│   ├── public/                     # Public Monitor Screen (index.html, app.js, style.css)
+│   ├── user/                       # Member User Portal (index.html, app.js, style.css)
+│   └── shared/                     # Shared CSS tokens & API Client library
+└── docs/                           # Tài liệu thiết kế & kỹ thuật chi tiết
+    ├── api_documentation.md        # Đặc tả REST API & WebSockets
+    ├── deployment_and_setup.md     # Hướng dẫn cài đặt & vận hành hệ thống
+    ├── hardware_firmware_guide.md  # Sơ đồ chân & mã nguồn phần cứng ESP32
+    ├── mqtt_protocol.md            # Chuẩn giao tiếp MQTT
+    ├── project_context.md          # Tổng quan dự án (Tài liệu này)
+    └── system_architecture.md      # Kiến trúc kỹ thuật chi tiết
 ```
 
-## Dữ liệu cần lưu trữ
+---
 
-- Thành viên: UID thẻ, tên, ngày hết hạn membership.
-- Locker: số locker, trạng thái (trống/đang dùng), UID đang giữ nếu có.
-- Lịch sử ra vào: UID, thời điểm check-in, thời điểm check-out, thời gian
-  tập luyện.
-- Dữ liệu môi trường: thời điểm đo, nhiệt độ, độ ẩm, trạng thái quạt.
+## 5. Trạng thái Hiện tại & Tiến độ Hoàn thành
 
-## Trạng thái hiện tại
-
-- Đã có báo cáo đồ án (PDF/PPTX) mô tả đầy đủ chức năng, thiết bị, bản vẽ
-  phác thảo, kế hoạch thực hiện theo tuần.
-- [Proposal](../24127003_24127240_24127270.pdf)
-- Đã có bản mô phỏng Wokwi cho phần firmware ESP32 (check-in/out cửa
-  chính, kiểm tra hạn, LCD, servo, DHT22, relay quạt).
-- Đã có prompt chi tiết để sinh backend Python (chưa triển khai code thật).
-- Dashboard web, kết nối Firebase, và Telegram Bot chưa được triển khai,
-  hiện đang ở bước lên kế hoạch.
-
-## Lưu ý khi làm việc tiếp trên project này
-
-- Không dùng Node-RED, thay bằng backend Python tự viết.
-- Giữ nguyên tắc tách lớp rõ ràng giữa firmware (ESP32), lớp truyền dẫn
-  (MQTT), lớp xử lý logic (backend Python), và lớp hiển thị (dashboard).
-- Ưu tiên hoàn thiện chức năng chính (check-in/out, kiểm tra hạn, locker)
-  trước, sau đó mới đến chức năng phụ (môi trường, cảnh báo, đếm người).
-- Thời hạn hoàn thành đang được rút ngắn xuống còn khoảng 1 tuần, nên các
-  quyết định kỹ thuật nên ưu tiên đơn giản, dễ demo và dễ giải thích trong
-  báo cáo hơn là tối ưu hoặc mở rộng quá mức cần thiết.
+- [x] **Proposal & Báo cáo đề cương**: Hoàn thành tài liệu phân tích yêu cầu và kế hoạch.
+- [x] **Phần cứng & Firmware ESP32**: Viết code Arduino C++, cấu hình PlatformIO, sơ đồ mạch Wokwi simulation kết nối Wi-Fi và MQTT broker.
+- [x] **Giao thức MQTT**: Thiết lập đầy đủ các topic kiểm soát cửa, tủ đồ, dữ liệu cảm biến và lệnh điều khiển quạt.
+- [x] **Backend FastAPI**: Hoàn thành toàn bộ kiến trúc đa tầng (Models, Repositories, Services, MQTT Async Bridge, REST APIs, WebSockets).
+- [x] **Cơ sở dữ liệu Firebase Realtime Database**: Lưu trữ dữ liệu thành viên, tủ đồ, nhật ký vào ra, chỉ số môi trường và cấu hình ngưỡng.
+- [x] **Cảnh báo Telegram**: Tự động bắn thông báo khi nhiệt độ/độ ẩm vượt ngưỡng cho phép.
+- [x] **Cấu hình Ngưỡng Môi trường Động (Dynamic Thresholds)**: Cho phép Admin điều chỉnh ngưỡng kích hoạt quạt trực tiếp trên Web UI và lưu bền vững vào DB.
+- [x] **Bộ 3 Web Portal**:
+  - Giao diện Public Screen hiện đại.
+  - Giao diện Member User Portal cho phép tra cứu & đổi mật khẩu.
+  - Giao diện Admin Dashboard đầy đủ công cụ quản lý và điều khiển quạt thủ công.
+- [x] **Unit Testing**: Bộ test tự động kiểm thử toàn bộ logic nghiệp vụ đạt 100% pass.
