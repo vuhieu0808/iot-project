@@ -70,3 +70,42 @@ async def test_environment_thresholds_and_fan_control(test_repo):
     assert env_service.fan_currently_on is True
     assert manual_reading.fan_on is True
 
+
+@pytest.mark.asyncio
+async def test_dynamic_threshold_update(test_repo):
+    """Test dynamically modifying environment thresholds and verifying new trigger points."""
+    mock_notifier = MockNotificationService()
+    env_service = EnvironmentService(
+        repository=test_repo,
+        notification_service=mock_notifier,
+        temp_threshold=32.0,
+        humidity_threshold=80.0,
+    )
+
+    # Initially at 30°C / 70% -> normal, fan off
+    res1 = await env_service.process_reading(30.0, 70.0)
+    assert res1["fan_control_needed"] is False
+    assert env_service.fan_currently_on is False
+
+    # Admin updates thresholds to 28°C / 65%
+    updated = env_service.update_thresholds(temp_threshold=28.0, humidity_threshold=65.0)
+    assert updated["temp_threshold"] == 28.0
+    assert updated["humidity_threshold"] == 65.0
+    assert env_service.get_thresholds() == {"temp_threshold": 28.0, "humidity_threshold": 65.0}
+
+    # Now 30°C / 70% exceeds the new threshold (30 > 28) -> Fan should turn ON!
+    res2 = await env_service.process_reading(30.0, 70.0)
+    assert res2["fan_control_needed"] is True
+    assert res2["fan_command"] == "on"
+    assert env_service.fan_currently_on is True
+    assert len(mock_notifier.sent_alerts) == 1
+
+    # Admin increases threshold to 35°C / 85%
+    env_service.update_thresholds(temp_threshold=35.0, humidity_threshold=85.0)
+
+    # Next reading at 30°C / 70% is now below the new threshold (30 <= 35, 70 <= 85) -> Fan should turn OFF!
+    res3 = await env_service.process_reading(30.0, 70.0)
+    assert res3["fan_control_needed"] is True
+    assert res3["fan_command"] == "off"
+    assert env_service.fan_currently_on is False
+

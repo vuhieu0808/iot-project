@@ -124,5 +124,15 @@ export const GymTagAPI = {
     method: 'POST',
     body: JSON.stringify({ command }),
   }),
+
+  // === Threshold Settings ===
+  getEnvironmentThresholds: () => request('/api/admin/environment/thresholds'),
+  updateEnvironmentThresholds: (tempThreshold, humidityThreshold) => request('/api/admin/environment/thresholds', {
+    method: 'PUT',
+    body: JSON.stringify({
+      temp_threshold: tempThreshold,
+      humidity_threshold: humidityThreshold,
+    }),
+  }),
 };
 

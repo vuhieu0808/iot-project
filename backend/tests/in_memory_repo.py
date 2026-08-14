@@ -106,3 +106,13 @@ class InMemoryRepository(BaseRepository):
     async def get_latest_reading(self) -> Optional[EnvironmentReading]:
         readings = await self.get_environment_readings(limit=1)
         return readings[0] if readings else None
+
+    async def get_environment_thresholds(self) -> Optional[dict]:
+        return getattr(self, "_thresholds", None)
+
+    async def save_environment_thresholds(self, temp_threshold: float, humidity_threshold: float) -> dict:
+        self._thresholds = {
+            "temp_threshold": temp_threshold,
+            "humidity_threshold": humidity_threshold,
+        }
+        return self._thresholds

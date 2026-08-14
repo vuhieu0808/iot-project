@@ -70,6 +70,18 @@ async def lifespan(app: FastAPI):
         temp_threshold=settings.TEMP_THRESHOLD,
         humidity_threshold=settings.HUMIDITY_THRESHOLD,
     )
+
+    # Load saved thresholds from database if available (overrides .env defaults)
+    try:
+        saved_thresholds = await repo.get_environment_thresholds()
+        if saved_thresholds:
+            temp_val = float(saved_thresholds.get("temp_threshold", settings.TEMP_THRESHOLD))
+            hum_val = float(saved_thresholds.get("humidity_threshold", settings.HUMIDITY_THRESHOLD))
+            environment_service.update_thresholds(temp_threshold=temp_val, humidity_threshold=hum_val)
+            logger.info(f"Loaded persistent environment thresholds: temp={temp_val}°C, humidity={hum_val}%")
+    except Exception as e:
+        logger.warning(f"Could not load persistent environment thresholds: {e}")
+
     occupancy_service = OccupancyService(repository=repo)
 
     # Attach services to app state for API route access

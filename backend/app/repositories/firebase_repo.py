@@ -305,3 +305,22 @@ class FirebaseRepository(BaseRepository):
         if readings:
             return readings[0]
         return None
+
+    # --- Environment Threshold Settings ---
+    async def get_environment_thresholds(self) -> Optional[dict]:
+        """Get saved environment thresholds from Firebase."""
+        def _get():
+            data = self._ref("settings/environment_thresholds").get()
+            return data
+        return await asyncio.to_thread(_get)
+
+    async def save_environment_thresholds(self, temp_threshold: float, humidity_threshold: float) -> dict:
+        """Save environment thresholds to Firebase."""
+        def _save():
+            data = {
+                "temp_threshold": temp_threshold,
+                "humidity_threshold": humidity_threshold,
+            }
+            self._ref("settings/environment_thresholds").set(data)
+            return data
+        return await asyncio.to_thread(_save)

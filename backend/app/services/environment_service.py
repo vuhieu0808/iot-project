@@ -118,3 +118,20 @@ class EnvironmentService:
         """Fetch historical readings."""
         return await self.repository.get_environment_readings(limit=limit)
 
+    def update_thresholds(self, temp_threshold: float, humidity_threshold: float) -> dict:
+        """Update temperature and humidity thresholds at runtime."""
+        self.temp_threshold = temp_threshold
+        self.humidity_threshold = humidity_threshold
+        logger.info(f"Environment thresholds updated: temp={self.temp_threshold}°C, humidity={self.humidity_threshold}%")
+        return {
+            "temp_threshold": self.temp_threshold,
+            "humidity_threshold": self.humidity_threshold,
+        }
+
+    def get_thresholds(self) -> dict:
+        """Get current threshold values."""
+        return {
+            "temp_threshold": self.temp_threshold,
+            "humidity_threshold": self.humidity_threshold,
+        }
+

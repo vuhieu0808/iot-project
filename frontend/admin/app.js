@@ -2,9 +2,9 @@
  * GymTag Admin Panel App Controller (With Backend JWT Auth)
  */
 
-import { GymTagAPI } from '../shared/js/api.js?v=4.0';
-import { wsClient } from '../shared/js/websocket.js?v=4.0';
-import { formatTime, formatDate, formatDuration, escapeHtml, showToast } from '../shared/js/utils.js?v=4.0';
+import { GymTagAPI } from '../shared/js/api.js?v=5.1';
+import { wsClient } from '../shared/js/websocket.js?v=5.1';
+import { formatTime, formatDate, formatDuration, escapeHtml, showToast } from '../shared/js/utils.js?v=5.1';
 
 let isEditMode = false;
 let cachedMembers = [];
@@ -68,6 +68,7 @@ async function initAdmin() {
   setupModal();
   setupLockerModal();
   setupFanControl();
+  setupThresholdControls();
   setupWebSocket();
   await loadOverviewData();
 }
@@ -115,6 +116,7 @@ function setupTabs() {
           break;
         case 'environment':
           loadEnvironmentHistoryData();
+          loadThresholds();
           break;
       }
     });
@@ -127,6 +129,7 @@ function setupTabs() {
 
   document.getElementById('btn-refresh-env').addEventListener('click', () => {
     loadEnvironmentHistoryData();
+    loadThresholds();
   });
 }
 
@@ -175,6 +178,18 @@ function setupWebSocket() {
 
   wsClient.on('environment_update', (data) => {
     renderOverviewEnvironment(data);
+  });
+
+  wsClient.on('threshold_update', (data) => {
+    if (data.temp_threshold !== undefined) {
+      const tempInput = document.getElementById('threshold-temp');
+      if (tempInput) tempInput.value = data.temp_threshold;
+    }
+    if (data.humidity_threshold !== undefined) {
+      const humInput = document.getElementById('threshold-humidity');
+      if (humInput) humInput.value = data.humidity_threshold;
+    }
+    showToast('Ngưỡng nhiệt độ & độ ẩm vừa được cập nhật!', 'info');
   });
 
   const token = sessionStorage.getItem('gymtag_admin_token');
@@ -852,6 +867,166 @@ function setupFanControl() {
   }
 }
 
+/* ----------------------------------------------------
+ * THRESHOLD CONFIGURATION
+ * ---------------------------------------------------- */
+// Ensure threshold API methods exist even if browser cached older api.js module
+if (typeof GymTagAPI.getEnvironmentThresholds !== 'function') {
+  GymTagAPI.getEnvironmentThresholds = async () => {
+    const token = sessionStorage.getItem('gymtag_admin_token');
+    const res = await fetch('/api/admin/environment/thresholds', {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+    if (!res.ok) throw new Error('Không thể tải ngưỡng môi trường');
+    return res.json();
+  };
+}
+
+if (typeof GymTagAPI.updateEnvironmentThresholds !== 'function') {
+  GymTagAPI.updateEnvironmentThresholds = async (tempThreshold, humidityThreshold) => {
+    const token = sessionStorage.getItem('gymtag_admin_token');
+    const res = await fetch('/api/admin/environment/thresholds', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        temp_threshold: tempThreshold,
+        humidity_threshold: humidityThreshold
+      })
+    });
+    if (!res.ok) throw new Error('Không thể lưu ngưỡng môi trường');
+    return res.json();
+  };
+}
+
+async function loadThresholds() {
+  try {
+    const data = await GymTagAPI.getEnvironmentThresholds();
+    if (data) {
+      if (data.temp_threshold !== undefined && data.temp_threshold !== null) {
+        const tempInput = document.getElementById('threshold-temp');
+        if (tempInput) tempInput.value = parseFloat(data.temp_threshold).toFixed(1);
+      }
+      if (data.humidity_threshold !== undefined && data.humidity_threshold !== null) {
+        const humInput = document.getElementById('threshold-humidity');
+        if (humInput) humInput.value = parseFloat(data.humidity_threshold).toFixed(1);
+      }
+    }
+  } catch (e) {
+    console.error('Error loading environment thresholds:', e);
+  }
+}
+
+function adjustThreshold(targetId, step) {
+  const input = document.getElementById(targetId);
+  if (!input) return;
+
+  const rawVal = input.value.toString().trim().replace(',', '.');
+  let currentVal = parseFloat(rawVal);
+  if (isNaN(currentVal)) {
+    currentVal = targetId === 'threshold-temp' ? 32.0 : 80.0;
+  }
+
+  const isDecimal = (step % 1 !== 0) || targetId === 'threshold-temp';
+  let newVal = Math.max(0, Math.min(100, currentVal + step));
+  input.value = isDecimal ? newVal.toFixed(1) : newVal.toFixed(0);
+}
+
+function setupThresholdControls() {
+  // Delegate click for any .stepper-btn or .threshold-adjust button
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.stepper-btn, .threshold-adjust');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const targetId = btn.getAttribute('data-target');
+    const step = parseFloat(btn.getAttribute('data-step'));
+    if (targetId && !isNaN(step)) {
+      adjustThreshold(targetId, step);
+    }
+  });
+
+  // Keyboard navigation & validation for stepper inputs
+  const attachInputEvents = (inputId, defaultStep) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        adjustThreshold(inputId, defaultStep);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        adjustThreshold(inputId, -defaultStep);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('btn-save-thresholds')?.click();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      const raw = input.value.toString().trim().replace(',', '.');
+      let val = parseFloat(raw);
+      if (isNaN(val)) {
+        val = inputId === 'threshold-temp' ? 32.0 : 80.0;
+      }
+      val = Math.max(0, Math.min(100, val));
+      input.value = (inputId === 'threshold-temp') ? val.toFixed(1) : val.toFixed(1);
+    });
+  };
+
+  attachInputEvents('threshold-temp', 0.5);
+  attachInputEvents('threshold-humidity', 1.0);
+
+  // Save thresholds button
+  const btnSave = document.getElementById('btn-save-thresholds');
+  const statusEl = document.getElementById('threshold-save-status');
+
+  if (btnSave) {
+    btnSave.addEventListener('click', async () => {
+      const tempInput = document.getElementById('threshold-temp');
+      const humInput = document.getElementById('threshold-humidity');
+
+      const tempVal = parseFloat(tempInput.value.replace(',', '.'));
+      const humVal = parseFloat(humInput.value.replace(',', '.'));
+
+      if (isNaN(tempVal) || isNaN(humVal) || tempVal < 0 || tempVal > 100 || humVal < 0 || humVal > 100) {
+        showToast('Vui lòng nhập giá trị ngưỡng hợp lệ (từ 0 đến 100)!', 'error');
+        return;
+      }
+
+      btnSave.disabled = true;
+      btnSave.innerHTML = '<span>⏳ Đang lưu...</span>';
+
+      try {
+        await GymTagAPI.updateEnvironmentThresholds(tempVal, humVal);
+        showToast('Đã lưu cấu hình ngưỡng nhiệt độ & độ ẩm mới thành công!', 'success');
+        if (statusEl) {
+          statusEl.textContent = '✅ Đã lưu!';
+          setTimeout(() => { statusEl.textContent = ''; }, 3500);
+        }
+        loadEnvironmentHistoryData();
+      } catch (e) {
+        showToast(`Lỗi khi lưu ngưỡng: ${e.message}`, 'error');
+        if (statusEl) {
+          statusEl.textContent = '❌ Lỗi';
+          setTimeout(() => { statusEl.textContent = ''; }, 3500);
+        }
+      } finally {
+        btnSave.disabled = false;
+        btnSave.innerHTML = '<span>💾 Lưu Cấu Hình</span>';
+      }
+    });
+  }
+
+  // Pre-fetch thresholds
+  loadThresholds();
+}
+
 function renderEnvironmentHistory(history) {
   const tbody = document.getElementById('env-history-tbody');
   if (!tbody || !history) return;
@@ -865,15 +1040,22 @@ function renderEnvironmentHistory(history) {
     updateAdminFanUI(history[0].fan_on);
   }
 
+  const tempThreshold = parseFloat(document.getElementById('threshold-temp')?.value) || 32.0;
+  const humThreshold = parseFloat(document.getElementById('threshold-humidity')?.value) || 80.0;
+
   tbody.innerHTML = history.map(item => {
-    const isHighTemp = item.temperature >= 32.0;
-    const isHighHum = item.humidity >= 80.0;
+    const isHighTemp = item.temperature > tempThreshold;
+    const isHighHum = item.humidity > humThreshold;
 
     return `
       <tr>
         <td>${formatTime(item.timestamp)}</td>
-        <td style="${isHighTemp ? 'color:var(--status-danger); font-weight:bold;' : ''}">${item.temperature.toFixed(1)} °C</td>
-        <td style="${isHighHum ? 'color:var(--status-danger); font-weight:bold;' : ''}">${item.humidity.toFixed(1)} %</td>
+        <td style="${isHighTemp ? 'color:var(--status-danger); font-weight:bold;' : ''}">
+          ${item.temperature.toFixed(1)} °C ${isHighTemp ? '<small title="Vượt ngưỡng">⚠️</small>' : ''}
+        </td>
+        <td style="${isHighHum ? 'color:var(--status-danger); font-weight:bold;' : ''}">
+          ${item.humidity.toFixed(1)} % ${isHighHum ? '<small title="Vượt ngưỡng">⚠️</small>' : ''}
+        </td>
         <td>
           <span class="badge ${item.fan_on ? 'badge-info' : 'badge-secondary'}">
             ${item.fan_on ? '🌀 BẬT (Fan ON)' : 'TẮT (Fan OFF)'}

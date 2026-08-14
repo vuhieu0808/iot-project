@@ -11,10 +11,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="../shared/css/variables.css?v=3.2">
-  <link rel="stylesheet" href="../shared/css/base.css?v=3.2">
-  <link rel="stylesheet" href="../shared/css/components.css?v=3.2">
-  <link rel="stylesheet" href="./style.css?v=3.2">
+  <link rel="stylesheet" href="../shared/css/variables.css?v=4.5">
+  <link rel="stylesheet" href="../shared/css/base.css?v=4.5">
+  <link rel="stylesheet" href="../shared/css/components.css?v=4.5">
+  <link rel="stylesheet" href="./style.css?v=4.5">
 </head>
 <body>
 
@@ -223,6 +223,51 @@
 
         <!-- TAB 5: ENVIRONMENT HISTORY -->
         <section id="tab-environment" class="tab-pane">
+          <!-- Threshold Configuration Widget (Compact Single Row Bar) -->
+          <div class="glass-card threshold-toolbar-card" style="margin-bottom: 1.25rem;">
+            <div class="threshold-toolbar-row">
+              <div class="threshold-toolbar-title">
+                <span class="threshold-icon">⚙️</span>
+                <div>
+                  <h3 style="font-size: 1rem; margin: 0; color: var(--text-primary);">Ngưỡng Bật Quạt Tự Động</h3>
+                  <div class="threshold-subtitle">Tự động bật quạt khi Nhiệt độ hoặc Độ ẩm vượt ngưỡng</div>
+                </div>
+              </div>
+
+              <div class="threshold-controls-group">
+                <!-- Temp control -->
+                <div class="threshold-item">
+                  <span class="threshold-item-label">🌡️ Nhiệt độ:</span>
+                  <div class="stepper-box">
+                    <button type="button" class="stepper-btn btn-dec" data-target="threshold-temp" data-step="-0.5" title="Giảm 0.5°C">−</button>
+                    <input type="text" inputmode="decimal" id="threshold-temp" class="stepper-input threshold-input" value="32.0" autocomplete="off" spellcheck="false">
+                    <button type="button" class="stepper-btn btn-inc" data-target="threshold-temp" data-step="0.5" title="Tăng 0.5°C">+</button>
+                    <span class="stepper-unit">°C</span>
+                  </div>
+                </div>
+
+                <!-- Humidity control -->
+                <div class="threshold-item">
+                  <span class="threshold-item-label">💧 Độ ẩm:</span>
+                  <div class="stepper-box">
+                    <button type="button" class="stepper-btn btn-dec" data-target="threshold-humidity" data-step="-1" title="Giảm 1%">−</button>
+                    <input type="text" inputmode="decimal" id="threshold-humidity" class="stepper-input threshold-input" value="80.0" autocomplete="off" spellcheck="false">
+                    <button type="button" class="stepper-btn btn-inc" data-target="threshold-humidity" data-step="1" title="Tăng 1%">+</button>
+                    <span class="stepper-unit">%</span>
+                  </div>
+                </div>
+
+                <!-- Action Button -->
+                <div class="threshold-btn-wrapper">
+                  <button type="button" id="btn-save-thresholds" class="btn btn-primary btn-sm">
+                    <span>💾 Lưu Cấu Hình</span>
+                  </button>
+                  <span id="threshold-save-status" class="threshold-status-badge"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="glass-card">
             <div class="section-header" style="flex-wrap: wrap; gap: 1rem;">
               <h2>🌡️ Lịch Sử Đo Môi Trường (DHT22)</h2>
@@ -377,7 +422,7 @@
   </div>
 
   <!-- JS Scripts -->
-  <script type="module" src="./app.js?v=3.2"></script>
+  <script type="module" src="./app.js?v=5.1"></script>
 </body>
 </html>
 

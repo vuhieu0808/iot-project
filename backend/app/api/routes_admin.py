@@ -42,6 +42,18 @@ class FanControlRequest(BaseModel):
     command: str = Field(..., description="Fan command: 'on' or 'off'")
 
 
+class ThresholdUpdateRequest(BaseModel):
+    """Admin threshold update request model."""
+    temp_threshold: float = Field(..., ge=0, le=100, description="Temperature threshold in Celsius")
+    humidity_threshold: float = Field(..., ge=0, le=100, description="Humidity threshold in percentage")
+
+
+class ThresholdResponse(BaseModel):
+    """Current environment threshold values response."""
+    temp_threshold: float
+    humidity_threshold: float
+
+
 
 async def _broadcast_admin_locker_update(locker_service):
     """Broadcast updated full lockers to admin WS clients & status to public WS clients."""
@@ -299,4 +311,39 @@ async def control_admin_fan(
         "fan_on": fan_on,
         "reading": reading,
     }
+
+
+@router.get("/environment/thresholds", response_model=ThresholdResponse)
+async def get_environment_thresholds(
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Get current environment threshold settings (Admin Auth Required)."""
+    env_service = request.app.state.environment_service
+    return env_service.get_thresholds()
+
+
+@router.put("/environment/thresholds", response_model=ThresholdResponse)
+async def update_environment_thresholds(
+    body: ThresholdUpdateRequest,
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Update environment thresholds for automatic fan control (Admin Auth Required)."""
+    env_service = request.app.state.environment_service
+    repo = request.app.state.repository
+
+    # 1. Update service runtime state
+    updated = env_service.update_thresholds(body.temp_threshold, body.humidity_threshold)
+
+    # 2. Persist to repository/Firebase
+    await repo.save_environment_thresholds(body.temp_threshold, body.humidity_threshold)
+
+    # 3. Broadcast threshold change via WebSocket to admin clients
+    await ws_manager.broadcast_admin({
+        "type": "threshold_update",
+        "data": updated
+    })
+
+    return updated
 

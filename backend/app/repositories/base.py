@@ -94,3 +94,14 @@ class BaseRepository(ABC):
     async def get_latest_reading(self) -> Optional[EnvironmentReading]:
         """Get most recent temperature and humidity reading."""
         pass
+
+    # --- Environment Threshold Settings Methods ---
+    @abstractmethod
+    async def get_environment_thresholds(self) -> Optional[dict]:
+        """Get saved environment thresholds."""
+        pass
+
+    @abstractmethod
+    async def save_environment_thresholds(self, temp_threshold: float, humidity_threshold: float) -> dict:
+        """Save environment thresholds."""
+        pass
