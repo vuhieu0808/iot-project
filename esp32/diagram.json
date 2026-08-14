@@ -5,7 +5,16 @@
   "parts": [
     { "type": "wokwi-breadboard", "id": "bb1", "top": -166.2, "left": 146.8, "attrs": {} },
     { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -9.6, "left": 4.84, "attrs": {} },
-    { "type": "wokwi-dht22", "id": "dht1", "top": -153.3, "left": 186.6, "attrs": {} }
+    { "type": "wokwi-dht22", "id": "dht1", "top": -153.3, "left": 186.6, "attrs": {} },
+    { "type": "wokwi-led", "id": "led1", "top": -3.6, "left": -73, "attrs": { "color": "red" } },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 80.2,
+      "left": -58.45,
+      "rotate": 270,
+      "attrs": { "value": "1000" }
+    }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
@@ -18,7 +27,10 @@
     [ "dht1:VCC", "bb1:4b.g", "", [ "$bb" ] ],
     [ "dht1:SDA", "bb1:5b.g", "", [ "$bb" ] ],
     [ "dht1:NC", "bb1:6b.g", "", [ "$bb" ] ],
-    [ "dht1:GND", "bb1:7b.g", "", [ "$bb" ] ]
+    [ "dht1:GND", "bb1:7b.g", "", [ "$bb" ] ],
+    [ "led1:C", "esp:GND.1", "green", [ "v0" ] ],
+    [ "r1:2", "led1:A", "green", [ "h0" ] ],
+    [ "r1:1", "esp:12", "green", [ "v19.2", "h38.25" ] ]
   ],
   "dependencies": {}
 }

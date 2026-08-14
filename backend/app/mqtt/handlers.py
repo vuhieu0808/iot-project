@@ -177,3 +177,7 @@ class MQTTMessageHandler:
             "type": "environment_update",
             "data": reading.model_dump()
         })
+        await ws_manager.broadcast_admin({
+            "type": "environment_update",
+            "data": reading.model_dump()
+        })
