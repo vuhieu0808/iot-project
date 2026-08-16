@@ -5,7 +5,7 @@
 namespace {
 constexpr char WIFI_SSID[] = "Wokwi-GUEST";
 constexpr char WIFI_PASSWORD[] = "";
-constexpr char MQTT_HOST[] = "test.mosquitto.org";
+constexpr char MQTT_HOST[] = "broker.hivemq.com";
 constexpr uint16_t MQTT_PORT = 1883;
 constexpr char FAN_TOPIC[] = "gymtag/environment/fan_control";
 constexpr char LOCKER_TOPIC[] = "gymtag/locker/response";
