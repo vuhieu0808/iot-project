@@ -1,91 +1,56 @@
 # Luồng module locker
 
-## Mục đích
+## Phần cứng
 
-Đọc UID RFID, yêu cầu backend cấp/truy cập/trả locker, kiểm tra phản hồi và điều khiển relay theo state machine không blocking.
+- MFRC522: SCK18, MISO19, MOSI23, SS21, RST4.
+- Servo #1–#4: GPIO 25, 26, 27, 32.
+- Door button #1–#4: GPIO 13, 14, 16, 17, `INPUT_PULLUP`.
+- RELEASE chung: GPIO33, `INPUT_PULLUP`.
 
-## Phần cứng liên quan
+Servo dùng ESP32Servo: 0° là locked, 90° là unlocked. Door button pressed/LOW nghĩa là closed; released/HIGH nghĩa là open.
 
-- RC522: SS GPIO 21, RST GPIO 4, giao tiếp SPI.
-- Relay locker: có logic nhưng mapping đang bị tắt với `LOCKER_RELAY_COUNT=0`.
-- Nút trả locker: có logic nhưng đang tắt với `RELEASE_BUTTON_PIN=-1`.
-
-## Khởi tạo
-
-`main.setup()` gọi `LockerRfid::begin()` rồi `LockerController::begin()`. RFID khởi tạo SPI/RC522. Controller đưa các relay đã map về inactive và cấu hình nút `INPUT_PULLUP`; hiện hai vòng không kích phần cứng vì mapping bị tắt.
-
-## Vòng lặp bình thường
+## Luồng assign/access
 
 ```text
-loop()
-→ MqttManager::update()
-→ EnvironmentSensor::update()
-→ LockerRfid::readCard(cardId)
-→ LockerController::handleCardScan(cardId)
-→ LockerController::update()
+RFID scan
+→ publish operation=scan
+→ WAITING_BACKEND
+→ backend assign/access
+→ servo UNLOCKED và giữ 90°
+→ WAIT_DOOR_OPEN, bắt buộc thấy CLOSED → OPEN
+→ WAIT_DOOR_CLOSE
+→ thấy OPEN → CLOSED
+→ servo LOCKED 0°
+→ nếu không releasePending: COOLDOWN → IDLE
 ```
 
-`MqttManager::update()` chạy trước để callback phản hồi có thể gọi `LockerController::handleMqttPayload()`.
+Backend assign làm locker occupied trước khi response. Access không đổi ownership. Scan không bao giờ tự release.
 
-## Dữ liệu vào
+## Luồng release
 
-- UID từ RC522, chuẩn hóa uppercase với hai ký tự hex mỗi byte.
-- Byte phản hồi MQTT của locker.
-- Nút nhấn active-low nếu GPIO được cấu hình.
-- Thời gian `millis()` cho debounce, timeout và cooldown.
+Trong `WAIT_DOOR_OPEN` hoặc `WAIT_DOOR_CLOSE`, nhấn RELEASE chỉ đặt `releasePending=true`. Firmware chưa gửi MQTT và backend chưa chuyển vacant.
 
-## Dữ liệu ra
+Sau khi door đã open rồi close:
 
-- MQTT request đến `gymtag/locker/request`.
-- Pulse relay active trong 1000 ms nếu locker được map.
-- Log Serial mô tả state và lỗi.
-
-## Tương tác module
-
-```mermaid
-flowchart LR
-    RFID[LockerRfid] --> Controller[LockerController]
-    Controller --> MQTT[MqttManager]
-    MQTT --> Broker[MQTT broker]
-    Broker --> Backend[LockerService]
-    Backend --> MQTT
-    Controller --> Relay[Relay locker]
-    Button[Nút trả locker] --> Controller
+```text
+servo LOCKED
+→ publish operation=release cùng locker_number
+→ WAITING_RELEASE_RESPONSE
+→ backend validate và ghi vacant
+→ response release
+→ clear session; không mở servo lần nữa
 ```
 
-Controller không truy cập Wi-Fi, Firebase hoặc member database trực tiếp.
+## Timeout
 
-## Luồng đầy đủ
+- Backend: 8000 ms.
+- Door action: 30000 ms.
+- Cooldown RFID/state: 5000 ms.
 
-1. RFID đọc card hợp lệ khi controller đang `IDLE`.
-2. Controller publish `operation="scan"` và chuyển sang `WAITING_SCAN`.
-3. Backend trả `assign`, `access` hoặc `denied`.
-4. `assign/access` mở locker rồi vào `MEMBER_SESSION`; `denied` vào cooldown.
-5. Trong member session, nút release publish `operation="release"` kèm số locker.
-6. Release thành công kết thúc phiên; bị từ chối thì quay lại phiên member.
+Nếu door vẫn closed và chưa từng mở sau 30 giây, servo khóa và session kết thúc. Nếu door đang open, firmware chỉ log rồi tiếp tục chờ, không ép khóa cửa đang mở.
 
-## Các trường hợp lỗi
+## Tính không blocking
 
-- MQTT chưa kết nối: publish thất bại và controller vào trạng thái an toàn.
-- Không có phản hồi trong 8 giây: scan vào cooldown; release quay lại member session.
-- JSON/card/action/số locker không hợp lệ: không kích relay.
-- Locker không có trong mapping: chỉ log, không ghi GPIO.
-- Phiên quá 30 giây: tự vào cooldown mà không tự release database.
+RFID cooldown, debounce, backend timeout và door timeout đều dùng `millis()`. `MqttManager::update()`, DHT và door detection tiếp tục chạy; không có `delay()` trong controller.
 
-## Hằng số quan trọng
-
-| Hằng số                     | Giá trị | Ý nghĩa                                     |
-| --------------------------- | ------: | ------------------------------------------- |
-| `RELAY_PULSE_MS`            |    1000 | Thời gian kích relay                        |
-| `BUTTON_DEBOUNCE_MS`        |      50 | Debounce nút                                |
-| `RFID_COOLDOWN_MS`          |    5000 | Khoảng cách tối thiểu giữa hai lần đọc RFID |
-| `BACKEND_TIMEOUT_MS`        |    8000 | Timeout phản hồi MQTT                       |
-| `MEMBER_SESSION_TIMEOUT_MS` |   30000 | Thời lượng tối đa của phiên                 |
-
-## Câu hỏi bảo vệ
-
-- Vì sao không dùng `delay()`? Vì nó sẽ chặn MQTT keepalive, đọc cảm biến và state machine.
-- Vì sao dùng `lockerNumber - 1`? Số locker backend bắt đầu từ 1, index mảng C++ bắt đầu từ 0; code kiểm tra biên trước.
-- Vì sao relay chưa mở? Repository chưa có mapping GPIO đã xác nhận, nên số lượng an toàn được đặt bằng 0.
-
-Xem [state machine](STATE_MACHINE.md), [các file](FILES.md) và [kịch bản trả locker](../../scenarios/RELEASE_LOCKER.md).
+Xem [state machine](STATE_MACHINE.md), [chi tiết file](FILES.md) và [kịch bản release](../../scenarios/RELEASE_LOCKER.md).

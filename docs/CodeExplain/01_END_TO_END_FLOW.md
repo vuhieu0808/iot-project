@@ -44,17 +44,16 @@ sequenceDiagram
     H-->>ESP: locker response
 ```
 
-Khi chưa có locker, service chọn locker vacant có số nhỏ nhất và lưu `card_id`, `assigned_at`. Khi đã có, service trả `access` mà không ghi database. ESP32 chỉ kích relay nếu response hợp lệ; mapping hiện bị tắt nên chỉ log.
+Khi chưa có locker, service chọn locker vacant có số nhỏ nhất và lưu `card_id`, `assigned_at`. Khi đã có, service trả `access` mà không ghi database. ESP32 chuyển servo của locker hợp lệ sang 90° và chờ door CLOSED → OPEN → CLOSED trước khi khóa về 0°.
 
 ## Trả locker tường minh
 
-1. Trong `MEMBER_SESSION`, controller kiểm tra nút release.
-2. ESP32 publish `operation="release"`, `card_id`, `locker_number`.
-3. Handler kiểm tra số nguyên dương rồi gọi `release_locker()`.
-4. Service xác minh member, quyền sở hữu, đúng số và trạng thái occupied.
-5. Repository lưu vacant, xóa card/timestamp; backend publish `release` và broadcast.
-
-GPIO nút/relay hiện bị tắt nên trigger vật lý cần cấu hình lại `hardware_config.h`.
+1. Sau assign/access, servo unlock và controller giữ active locker session.
+2. Nhấn RELEASE chỉ đặt `releasePending=true`; chưa gửi backend.
+3. Firmware chờ door mở rồi đóng, sau đó khóa servo về 0°.
+4. ESP32 mới publish `operation="release"`, `card_id`, `locker_number`.
+5. Handler gọi `release_locker()`; service xác minh ownership và ghi vacant.
+6. Response release chỉ clear session, không mở servo lần nữa.
 
 ## Môi trường và quạt
 
