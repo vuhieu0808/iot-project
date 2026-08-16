@@ -126,6 +126,136 @@
   display: block;
 }
 
+.telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.overview-sections {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.overview-section-card .section-header,
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.locker-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.locker-summary-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 96px;
+  padding: 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.locker-summary-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+}
+
+.locker-summary-card.vacant { border-color: rgba(16, 185, 129, 0.3); }
+.locker-summary-card.vacant::before { background: var(--status-success); }
+.locker-summary-card.vacant strong { color: var(--status-success); }
+.locker-summary-card.occupied { border-color: rgba(239, 68, 68, 0.3); }
+.locker-summary-card.occupied::before { background: var(--status-danger); }
+.locker-summary-card.occupied strong { color: var(--status-danger); }
+.locker-summary-card.broken { border-color: rgba(245, 158, 11, 0.4); }
+.locker-summary-card.broken::before { background: var(--status-warning); }
+.locker-summary-card.broken strong { color: var(--status-warning); }
+
+.locker-summary-label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.locker-summary-card strong {
+  font-size: 2.25rem;
+  line-height: 1;
+}
+
+.overview-empty-state {
+  padding: 2rem !important;
+  color: var(--text-muted) !important;
+  text-align: center;
+}
+
+.overview-pagination,
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.overview-pagination {
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.pagination-btn {
+  min-width: 36px;
+  min-height: 34px;
+  padding: 0.35rem 0.65rem;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.pagination-btn:hover:not(:disabled),
+.pagination-btn.active {
+  color: #fff;
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.pagination-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pagination-nav {
+  min-width: 84px;
+}
+
+@media (max-width: 900px) {
+  .telemetry-grid,
+  .locker-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tab-content-container {
+    padding: 1rem;
+  }
+}
+
 /* Modal Overlay */
 .modal-overlay {
   position: fixed;

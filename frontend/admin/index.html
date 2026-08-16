@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="../shared/css/variables.css?v=4.5">
   <link rel="stylesheet" href="../shared/css/base.css?v=4.5">
   <link rel="stylesheet" href="../shared/css/components.css?v=4.5">
-  <link rel="stylesheet" href="./style.css?v=4.5">
+  <link rel="stylesheet" href="./style.css?v=4.6">
 </head>
 <body>
 
@@ -81,53 +81,56 @@
             <div class="glass-card stat-widget">
               <div class="stat-icon-wrapper blue">🏋️</div>
               <div class="stat-content">
-                <span class="stat-label">Số người trong Gym</span>
+                <span class="stat-label">Số người trong phòng</span>
                 <div id="overview-occupancy" class="stat-value">--</div>
-                <span class="stat-subtext">Đang có mặt</span>
               </div>
             </div>
 
             <div class="glass-card stat-widget">
               <div class="stat-icon-wrapper cyan">🌡️</div>
               <div class="stat-content">
-                <span class="stat-label">Nhiệt độ / Độ ẩm</span>
-                <div id="overview-env" class="stat-value" style="font-size: 1.8rem;">--°C / --%</div>
-                <span id="overview-fan" class="stat-subtext">Quạt: --</span>
+                <span class="stat-label">Nhiệt độ</span>
+                <div id="overview-temperature" class="stat-value">--°C</div>
               </div>
             </div>
 
             <div class="glass-card stat-widget">
-              <div class="stat-icon-wrapper purple">🔐</div>
+              <div class="stat-icon-wrapper blue">💧</div>
               <div class="stat-content">
-                <span class="stat-label">Tủ Locker Đang Dùng</span>
-                <div id="overview-lockers" class="stat-value">-- / --</div>
-                <span class="stat-subtext">Số lượng locker</span>
-              </div>
-            </div>
-
-            <div class="glass-card stat-widget">
-              <div class="stat-icon-wrapper amber">👥</div>
-              <div class="stat-content">
-                <span class="stat-label">Tổng Số Thành Viên</span>
-                <div id="overview-members" class="stat-value">--</div>
-                <span class="stat-subtext">Đã đăng ký trong hệ thống</span>
+                <span class="stat-label">Độ ẩm</span>
+                <div id="overview-humidity" class="stat-value">--%</div>
               </div>
             </div>
           </div>
 
-          <div class="content-split" style="margin-top: 1.5rem;">
-            <!-- Locker Map -->
-            <div class="glass-card">
+          <div class="overview-sections">
+            <!-- Locker Statistics -->
+            <div class="glass-card overview-section-card">
               <div class="section-header">
-                <h3>🔐 Trạng Thái Locker Quickview</h3>
+                <h3>🔐 Trạng thái Locker</h3>
+                <span id="overview-locker-summary" class="badge badge-info">-- / -- tủ trống</span>
               </div>
-              <div id="overview-locker-grid" class="locker-grid-container"></div>
+              <div class="locker-summary-grid">
+                <div class="locker-summary-card vacant">
+                  <span class="locker-summary-label">Trống</span>
+                  <strong id="overview-locker-vacant">--</strong>
+                </div>
+                <div class="locker-summary-card occupied">
+                  <span class="locker-summary-label">Đang dùng</span>
+                  <strong id="overview-locker-occupied">--</strong>
+                </div>
+                <div class="locker-summary-card broken">
+                  <span class="locker-summary-label">Bảo trì</span>
+                  <strong id="overview-locker-broken">--</strong>
+                </div>
+              </div>
             </div>
 
             <!-- Recent Activity -->
-            <div class="glass-card">
+            <div class="glass-card overview-section-card">
               <div class="section-header">
                 <h3>📋 Lượt Quẹt Thẻ Mới Nhất</h3>
+                <span id="overview-logs-summary" class="badge badge-info">Hôm nay</span>
               </div>
               <div class="table-responsive">
                 <table class="custom-table">
@@ -143,6 +146,7 @@
                   <tbody id="overview-logs-tbody"></tbody>
                 </table>
               </div>
+              <nav id="overview-logs-pagination" class="overview-pagination" aria-label="Phân trang lượt quẹt thẻ"></nav>
             </div>
           </div>
         </section>
@@ -422,7 +426,7 @@
   </div>
 
   <!-- JS Scripts -->
-  <script type="module" src="./app.js?v=5.1"></script>
+  <script type="module" src="./app.js?v=5.2"></script>
 </body>
 </html>
 
