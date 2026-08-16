@@ -220,8 +220,22 @@ All administrative endpoints require Admin JWT authentication (`Authorization: B
 
 ### 3.5 Environment & Ventilation Management
 - **`GET /api/admin/environment/history`**: Get DHT22 sensor history logs (`limit` query param).
-- **`POST /api/admin/environment/fan`**: Manually turn the ventilation fan relay ON or OFF.
-  - **Request Body**: `{"command": "on"}` or `{"command": "off"}`
+- **`POST /api/admin/environment/fan`**: Turn the ventilation fan relay ON, OFF, or return to AUTO mode (Admin command has highest priority over sensor logic).
+  - **Request Body**: `{"command": "on"}`, `{"command": "off"}`, or `{"command": "auto"}`
+  - **Response**: `200 OK`
+    ```json
+    {
+      "message": "Đã gửi lệnh ON quạt thông gió (Thủ công - Ưu tiên cao nhất) thành công!",
+      "fan_on": true,
+      "manual_mode": true,
+      "reading": {
+        "temperature": 32.5,
+        "humidity": 65.0,
+        "fan_on": true,
+        "timestamp": "2026-08-16T23:00:00.123456"
+      }
+    }
+    ```
 - **`GET /api/admin/environment/thresholds`**: Get current automatic fan activation thresholds.
   - **Response**: `200 OK`
     ```json
@@ -239,6 +253,15 @@ All administrative endpoints require Admin JWT authentication (`Authorization: B
     }
     ```
   - **Response**: `200 OK`
+
+### 3.6 Telegram Bot Alert Testing
+- **`POST /api/admin/telegram/test`**: Dispatches a test alert notification to the configured Telegram Chat ID to verify connectivity.
+  - **Response**: `200 OK`
+    ```json
+    {
+      "message": "Đã gửi thông báo thử nghiệm tới Telegram thành công!"
+    }
+    ```
 
 ---
 
@@ -260,7 +283,16 @@ The backend provides two distinct WebSocket channels partitioned by privilege.
     ```
   - `environment_update`:
     ```json
-    { "type": "environment_update", "data": { "temperature": 30.2, "humidity": 68.5, "fan_on": false } }
+    {
+      "type": "environment_update",
+      "data": {
+        "temperature": 30.2,
+        "humidity": 68.5,
+        "fan_on": false,
+        "timestamp": "2026-08-16T23:00:00.123456",
+        "manual_mode": false
+      }
+    }
     ```
 
 ### 4.2 Admin WebSocket Stream
@@ -269,5 +301,6 @@ The backend provides two distinct WebSocket channels partitioned by privilege.
 - **Broadcast Events**:
   - `checkin_event` / `checkout_event`: Real-time scan alerts with complete member info, duration, and status.
   - `locker_event`: Full locker allocation updates including assigned member cards.
-  - `environment_update`: Live DHT22 telemetry and fan state.
+  - `environment_update`: Live DHT22 telemetry, timestamp, and fan state (`manual_mode` flag included).
   - `threshold_update`: Live notification when environment thresholds are reconfigured by an admin.
+

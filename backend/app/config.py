@@ -21,6 +21,11 @@ class Settings(BaseSettings):
 
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_CHAT_ID: Optional[str] = None
+    TELEGRAM_PROXY: Optional[str] = None
+
+    # Alert reminder interval in minutes (default: 15 minutes)
+    ALERT_REMINDER_INTERVAL_MINUTES: float = 15.0
+
 
     FIREBASE_CREDENTIALS_PATH: str = "firebase-admin-sdk.json"
     FIREBASE_DATABASE_URL: Optional[str] = None

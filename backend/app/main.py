@@ -60,6 +60,7 @@ async def lifespan(app: FastAPI):
     notification_service = NotificationService(
         bot_token=settings.TELEGRAM_BOT_TOKEN,
         chat_id=settings.TELEGRAM_CHAT_ID,
+        proxy=settings.TELEGRAM_PROXY,
     )
 
     access_service = AccessService(repository=repo)
@@ -69,7 +70,9 @@ async def lifespan(app: FastAPI):
         notification_service=notification_service,
         temp_threshold=settings.TEMP_THRESHOLD,
         humidity_threshold=settings.HUMIDITY_THRESHOLD,
+        alert_reminder_interval=settings.ALERT_REMINDER_INTERVAL_MINUTES * 60.0,
     )
+
 
     # Load saved thresholds from database if available (overrides .env defaults)
     try:

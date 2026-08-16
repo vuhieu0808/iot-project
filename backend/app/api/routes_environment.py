@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/environment", tags=["Environment"])
 
 class FanControlRequest(BaseModel):
     """Fan control command request model."""
-    command: str = Field(..., description="Fan command: 'on' or 'off'")
+    command: str = Field(..., description="Fan command: 'on', 'off', or 'auto'")
 
 
 @router.get("/latest", response_model=Optional[EnvironmentReading])
@@ -35,36 +35,70 @@ async def get_environment_history(
 
 @router.post("/fan")
 async def control_fan(body: FanControlRequest, request: Request):
-    """Manually turn ventilation fan ON or OFF."""
-    if body.command not in ["on", "off"]:
-        raise HTTPException(status_code=400, detail="Command must be 'on' or 'off'.")
+    """Manually turn ventilation fan ON, OFF, or switch to AUTO mode."""
+    if body.command not in ["on", "off", "auto"]:
+        raise HTTPException(status_code=400, detail="Command must be 'on', 'off', or 'auto'.")
 
-    fan_on = (body.command == "on")
     env_service = request.app.state.environment_service
     mqtt_client = request.app.state.mqtt_client
-
-    # 1. Update service internal state & log reading
-    reading = await env_service.set_fan_state(fan_on, reason=f"Manual control ({body.command.upper()})")
-
-    # 2. Publish MQTT command to ESP32
     from app.mqtt.topics import Topics
-    import json
-    fan_payload = json.dumps({
-        "fan": body.command,
-        "reason": "Manual control"
-    })
-    mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
-
-    # 3. Broadcast WS update to all clients
     from app.api.websocket import ws_manager
-    await ws_manager.broadcast({
-        "type": "environment_update",
-        "data": reading.model_dump()
-    })
+    import json
 
-    return {
-        "message": f"Đã gửi lệnh {body.command.upper()} quạt thông gió thành công!",
-        "fan_on": fan_on,
-        "reading": reading,
-    }
+    if body.command == "auto":
+        result = await env_service.set_auto_mode()
+        fan_on = env_service.fan_currently_on
+        reading = result.get("reading") or await env_service.get_latest_reading()
+
+        if result.get("fan_control_needed") and result.get("fan_command"):
+            fan_payload = json.dumps({
+                "fan": result["fan_command"],
+                "reason": "Chuyển về chế độ Tự động (AUTO)"
+            })
+            mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
+
+        if reading:
+            await ws_manager.broadcast({
+                "type": "environment_update",
+                "data": {
+                    **reading.model_dump(),
+                    "manual_mode": False,
+                }
+            })
+
+        return {
+            "message": "Đã chuyển quạt thông gió sang chế độ TỰ ĐỘNG (AUTO) thành công!",
+            "fan_on": fan_on,
+            "manual_mode": False,
+            "reading": reading,
+        }
+    else:
+        fan_on = (body.command == "on")
+        reading = await env_service.set_fan_state(
+            fan_on=fan_on,
+            manual=True,
+            reason=f"Lệnh thủ công ({body.command.upper()}) (Ưu tiên cao nhất)"
+        )
+
+        fan_payload = json.dumps({
+            "fan": body.command,
+            "reason": f"Manual control ({body.command.upper()})"
+        })
+        mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
+
+        await ws_manager.broadcast({
+            "type": "environment_update",
+            "data": {
+                **reading.model_dump(),
+                "manual_mode": True,
+            }
+        })
+
+        return {
+            "message": f"Đã gửi lệnh {body.command.upper()} quạt thông gió (Thủ công - Ưu tiên cao nhất) thành công!",
+            "fan_on": fan_on,
+            "manual_mode": True,
+            "reading": reading,
+        }
+
 

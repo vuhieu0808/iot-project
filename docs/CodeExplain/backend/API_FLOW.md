@@ -35,8 +35,10 @@ Các route `/me/*` dùng `require_user`; các route fallback có `{card_id}` hi�
 | `/api/admin/lockers...` | Danh sách, force-release/assign, đổi status |
 | `/api/admin/members...` | CRUD, reset password, toggle active |
 | `/api/admin/environment/history` | Lịch sử môi trường |
-| `/api/admin/environment/fan` | Điều khiển quạt qua service + MQTT + WS |
+| `/api/admin/environment/fan` | Điều khiển quạt (on/off/auto) qua service + MQTT + WS |
 | `/api/admin/environment/thresholds` | Đọc/ghi ngưỡng |
+| `/api/admin/telegram/test` | Gửi cảnh báo thử nghiệm tới Telegram Bot |
+
 
 Ngoại trừ login, route admin phụ thuộc `require_admin`.
 

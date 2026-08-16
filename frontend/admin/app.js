@@ -188,6 +188,7 @@ function setupWebSocket() {
 
 	wsClient.on("environment_update", (data) => {
 		renderOverviewEnvironment(data);
+		handleRealtimeEnvironmentUpdate(data);
 	});
 
 	wsClient.on("threshold_update", (data) => {
@@ -973,35 +974,88 @@ function renderAdminLogs(logs) {
 /* ----------------------------------------------------
  * TAB 5: ENVIRONMENT HISTORY
  * ---------------------------------------------------- */
+let adminEnvHistory = [];
+
 async function loadEnvironmentHistoryData() {
 	try {
-		const history = await GymTagAPI.getAdminEnvironmentHistory(50);
-		renderEnvironmentHistory(history);
+		adminEnvHistory = await GymTagAPI.getAdminEnvironmentHistory(50);
+		renderEnvironmentHistory(adminEnvHistory);
 	} catch (e) {
 		showToast("Lỗi tải lịch sử môi trường", "error");
 	}
 }
 
-function updateAdminFanUI(fanOn) {
+function handleRealtimeEnvironmentUpdate(data) {
+	if (!data || (data.temperature === undefined && data.humidity === undefined)) return;
+
+	const newReading = {
+		temperature: typeof data.temperature === "number" ? data.temperature : parseFloat(data.temperature),
+		humidity: typeof data.humidity === "number" ? data.humidity : parseFloat(data.humidity),
+		fan_on: Boolean(data.fan_on),
+		timestamp: data.timestamp || new Date().toISOString(),
+		manual_mode: data.manual_mode,
+	};
+
+	// Update live fan badge & mode
+	updateAdminFanUI(newReading.fan_on, newReading.manual_mode);
+
+	// Deduplicate: check if this reading is already recorded at top of history
+	if (adminEnvHistory.length > 0) {
+		const latest = adminEnvHistory[0];
+		if (
+			latest.timestamp === newReading.timestamp &&
+			latest.temperature === newReading.temperature &&
+			latest.humidity === newReading.humidity &&
+			latest.fan_on === newReading.fan_on
+		) {
+			return;
+		}
+	}
+
+	// Prepend to history cache in real time
+	adminEnvHistory.unshift(newReading);
+	if (adminEnvHistory.length > 50) {
+		adminEnvHistory.pop();
+	}
+
+	// Live re-render table immediately
+	renderEnvironmentHistory(adminEnvHistory);
+}
+
+function updateAdminFanUI(fanOn, manualMode) {
 	const fanBadge = document.getElementById("admin-fan-badge");
-	if (fanBadge) {
+	if (fanBadge && fanOn !== undefined && fanOn !== null) {
 		fanBadge.textContent = fanOn ? "🌀 BẬT" : "🛑 TẮT";
 		fanBadge.className = fanOn
 			? "badge badge-info"
 			: "badge badge-secondary";
+	}
+
+	const modeBadge = document.getElementById("admin-fan-mode-badge");
+	if (modeBadge && manualMode !== undefined) {
+		if (manualMode) {
+			modeBadge.textContent = "🛠️ THỦ CÔNG (Admin)";
+			modeBadge.className = "badge badge-warning";
+			modeBadge.title = "Lệnh thủ công của Admin đang có hiệu lực tuyệt đối (Bỏ qua tự động).";
+		} else {
+			modeBadge.textContent = "🤖 TỰ ĐỘNG";
+			modeBadge.className = "badge badge-success";
+			modeBadge.title = "Tự động kích hoạt quạt khi nhiệt độ / độ ẩm vượt ngưỡng.";
+		}
 	}
 }
 
 function setupFanControl() {
 	const btnOn = document.getElementById("btn-fan-on");
 	const btnOff = document.getElementById("btn-fan-off");
+	const btnAuto = document.getElementById("btn-fan-auto");
 
 	if (btnOn) {
 		btnOn.addEventListener("click", async () => {
 			try {
 				await GymTagAPI.controlAdminFan("on");
-				showToast("Đã gửi lệnh BẬT quạt thông gió!", "success");
-				updateAdminFanUI(true);
+				showToast("Đã gửi lệnh ép BẬT quạt (Thủ công - Ưu tiên cao nhất)!", "success");
+				updateAdminFanUI(true, true);
 				loadEnvironmentHistoryData();
 			} catch (e) {
 				showToast(`Lỗi điều khiển quạt: ${e.message}`, "error");
@@ -1013,11 +1067,24 @@ function setupFanControl() {
 		btnOff.addEventListener("click", async () => {
 			try {
 				await GymTagAPI.controlAdminFan("off");
-				showToast("Đã gửi lệnh TẮT quạt thông gió!", "success");
-				updateAdminFanUI(false);
+				showToast("Đã gửi lệnh ép TẮT quạt (Thủ công - Ưu tiên cao nhất)!", "success");
+				updateAdminFanUI(false, true);
 				loadEnvironmentHistoryData();
 			} catch (e) {
 				showToast(`Lỗi điều khiển quạt: ${e.message}`, "error");
+			}
+		});
+	}
+
+	if (btnAuto) {
+		btnAuto.addEventListener("click", async () => {
+			try {
+				await GymTagAPI.controlAdminFan("auto");
+				showToast("Đã chuyển quạt về chế độ TỰ ĐỘNG theo ngưỡng cảm biến!", "success");
+				updateAdminFanUI(undefined, false);
+				loadEnvironmentHistoryData();
+			} catch (e) {
+				showToast(`Lỗi chuyển chế độ: ${e.message}`, "error");
 			}
 		});
 	}
@@ -1060,7 +1127,27 @@ if (typeof GymTagAPI.updateEnvironmentThresholds !== "function") {
 	};
 }
 
+if (typeof GymTagAPI.testTelegramAlert !== "function") {
+	GymTagAPI.testTelegramAlert = async () => {
+		const token = sessionStorage.getItem("gymtag_admin_token");
+		const res = await fetch("/api/admin/telegram/test", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+			},
+		});
+		if (!res.ok) {
+			const data = await res.json().catch(() => ({}));
+			throw new Error(data.detail || "Không thể gửi cảnh báo thử nghiệm");
+		}
+		return res.json();
+	};
+}
+
 async function loadThresholds() {
+
+
 	try {
 		const data = await GymTagAPI.getEnvironmentThresholds();
 		if (data) {
@@ -1212,6 +1299,24 @@ function setupThresholdControls() {
 		});
 	}
 
+	// Test Telegram Alert button
+	const btnTestTelegram = document.getElementById("btn-test-telegram");
+	if (btnTestTelegram) {
+		btnTestTelegram.addEventListener("click", async () => {
+			btnTestTelegram.disabled = true;
+			btnTestTelegram.innerHTML = "<span>⏳ Đang gửi...</span>";
+			try {
+				await GymTagAPI.testTelegramAlert();
+				showToast("✅ Đã gửi thông báo thử nghiệm tới Telegram thành công!", "success");
+			} catch (err) {
+				showToast(`❌ Thất bại: ${err.message}`, "error");
+			} finally {
+				btnTestTelegram.disabled = false;
+				btnTestTelegram.innerHTML = "<span>📲 Thử Bot Telegram</span>";
+			}
+		});
+	}
+
 	// Pre-fetch thresholds
 	loadThresholds();
 }
@@ -1226,7 +1331,7 @@ function renderEnvironmentHistory(history) {
 	}
 
 	if (history.length > 0) {
-		updateAdminFanUI(history[0].fan_on);
+		updateAdminFanUI(history[0].fan_on, history[0].manual_mode);
 	}
 
 	const tempThreshold =
@@ -1239,15 +1344,23 @@ function renderEnvironmentHistory(history) {
 		.map((item) => {
 			const isHighTemp = item.temperature > tempThreshold;
 			const isHighHum = item.humidity > humThreshold;
+			const timeFormatted = formatTime(item.timestamp);
+			const dateFormatted = formatDate(item.timestamp);
+			const fullTimeDisplay = item.timestamp
+				? `<b>${timeFormatted}</b> <small style="color:var(--text-muted); margin-left:4px;">${dateFormatted}</small>`
+				: "-";
+
+			const tempNum = typeof item.temperature === "number" ? item.temperature : parseFloat(item.temperature);
+			const humNum = typeof item.humidity === "number" ? item.humidity : parseFloat(item.humidity);
 
 			return `
       <tr>
-        <td>${formatTime(item.timestamp)}</td>
+        <td>${fullTimeDisplay}</td>
         <td style="${isHighTemp ? "color:var(--status-danger); font-weight:bold;" : ""}">
-          ${item.temperature.toFixed(1)} °C ${isHighTemp ? '<small title="Vượt ngưỡng">⚠️</small>' : ""}
+          ${!isNaN(tempNum) ? tempNum.toFixed(1) : "--"} °C ${isHighTemp ? '<small title="Vượt ngưỡng">⚠️</small>' : ""}
         </td>
         <td style="${isHighHum ? "color:var(--status-danger); font-weight:bold;" : ""}">
-          ${item.humidity.toFixed(1)} % ${isHighHum ? '<small title="Vượt ngưỡng">⚠️</small>' : ""}
+          ${!isNaN(humNum) ? humNum.toFixed(1) : "--"} % ${isHighHum ? '<small title="Vượt ngưỡng">⚠️</small>' : ""}
         </td>
         <td>
           <span class="badge ${item.fan_on ? "badge-info" : "badge-secondary"}">

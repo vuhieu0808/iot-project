@@ -195,11 +195,13 @@ class MQTTMessageHandler:
 
         # Broadcast environment telemetry to ALL WebSocket clients (Public & Admin)
         reading = result["reading"]
+        update_data = {
+            **reading.model_dump(),
+            "manual_mode": result.get("manual_mode", self.environment_service.manual_mode),
+        }
         await ws_manager.broadcast({
             "type": "environment_update",
-            "data": reading.model_dump()
+            "data": update_data
         })
-        await ws_manager.broadcast_admin({
-            "type": "environment_update",
-            "data": reading.model_dump()
-        })
+
+
