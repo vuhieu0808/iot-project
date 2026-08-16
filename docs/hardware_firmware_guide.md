@@ -83,10 +83,10 @@
 
 ## 3. Simulation with PlatformIO & Wokwi
 
-The project includes preconfigured PlatformIO and Wokwi simulation files located in the [`esp32/`](file:///D:/Hieu/university/2nd%20year/HK3/IOT/Project2/esp32) directory:
-- [`esp32/src/main.cpp`](file:///D:/Hieu/university/2nd%20year/HK3/IOT/Project2/esp32/src/main.cpp): Arduino C++ firmware source code.
-- [`esp32/diagram.json`](file:///D:/Hieu/university/2nd%20year/HK3/IOT/Project2/esp32/diagram.json): Wokwi schematic with ESP32 DevKit, DHT22 sensor, and Fan Indicator LED.
-- [`esp32/wokwi.toml`](file:///D:/Hieu/university/2nd%20year/HK3/IOT/Project2/esp32/wokwi.toml): Simulation configuration file.
+The project includes preconfigured PlatformIO and Wokwi simulation files located in the [`esp32/`](../esp32) directory:
+- [`esp32/src/main.cpp`](../esp32/src/main.cpp): Arduino C++ firmware source code.
+- [`esp32/diagram.json`](../esp32/diagram.json): Wokwi schematic with ESP32 DevKit, DHT22 sensor, and Fan Indicator LED.
+- [`esp32/wokwi.toml`](../esp32/wokwi.toml): Simulation configuration file.
 
 To simulate:
 1. Open the project in VS Code with the **Wokwi for VS Code** extension installed.
