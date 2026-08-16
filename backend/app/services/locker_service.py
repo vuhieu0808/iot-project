@@ -16,7 +16,7 @@ class LockerService:
         self.repository = repository
 
     async def process_locker_scan(self, card_id: str) -> Dict[str, Any]:
-        """Process locker card scan from ESP32.
+        """Assign a locker or return the card's existing locker for access.
 
         Args:
             card_id: RFID card string.
@@ -25,34 +25,35 @@ class LockerService:
             Dict containing response for MQTT topic:
             {
                 "card_id": str,
-                "action": "assign" | "release" | "denied",
+                "action": "assign" | "access" | "denied",
                 "locker_number": int or None,
                 "reason": str
             }
         """
         logger.info(f"Processing locker scan for card_id: {card_id}")
 
-        # Check if card currently holds a locker
+        member = await self.repository.get_member(card_id)
+        if not member:
+            logger.warning(f"Locker access denied: card_id {card_id} is not registered.")
+            return {
+                "card_id": card_id,
+                "action": "denied",
+                "locker_number": None,
+                "member_name": None,
+                "reason": "RFID card is not registered",
+            }
+
+        # A repeated scan opens the existing locker without changing ownership.
         existing_locker = await self.repository.get_locker_by_card(card_id)
 
         if existing_locker:
-            # RELEASE LOCKER
-            locker_num = existing_locker.locker_number
-            updated_locker = Locker(
-                locker_number=locker_num,
-                status=LockerStatus.VACANT,
-                is_occupied=False,
-                card_id=None,
-                assigned_at=None,
-            )
-            await self.repository.save_locker(updated_locker)
-            logger.info(f"Released locker #{locker_num} for card_id: {card_id}")
-
+            logger.info(f"Granted access to locker #{existing_locker.locker_number} for card_id: {card_id}")
             return {
                 "card_id": card_id,
-                "action": "release",
-                "locker_number": locker_num,
-                "reason": f"Locker #{locker_num} released successfully",
+                "action": "access",
+                "locker_number": existing_locker.locker_number,
+                "member_name": member.name,
+                "reason": f"Locker #{existing_locker.locker_number} opened",
             }
         else:
             # ASSIGN LOCKER (Find first empty locker slot that is VACANT, not BROKEN)
@@ -65,6 +66,7 @@ class LockerService:
                     "card_id": card_id,
                     "action": "denied",
                     "locker_number": None,
+                    "member_name": member.name,
                     "reason": "No vacant lockers available",
                 }
 
@@ -86,8 +88,66 @@ class LockerService:
                 "card_id": card_id,
                 "action": "assign",
                 "locker_number": target_locker.locker_number,
+                "member_name": member.name,
                 "reason": f"Locker #{target_locker.locker_number} assigned successfully",
             }
+
+    async def release_locker(self, card_id: str, locker_number: int) -> Dict[str, Any]:
+        """Release a locker only when the requesting card currently owns it."""
+        member = await self.repository.get_member(card_id)
+        if not member:
+            return {
+                "card_id": card_id,
+                "action": "denied",
+                "locker_number": None,
+                "member_name": None,
+                "reason": "RFID card is not registered",
+            }
+
+        existing_locker = await self.repository.get_locker_by_card(card_id)
+        if not existing_locker:
+            return {
+                "card_id": card_id,
+                "action": "denied",
+                "locker_number": None,
+                "member_name": member.name,
+                "reason": "Card does not own a locker",
+            }
+
+        if existing_locker.locker_number != locker_number:
+            return {
+                "card_id": card_id,
+                "action": "denied",
+                "locker_number": existing_locker.locker_number,
+                "member_name": member.name,
+                "reason": "Requested locker does not match the card's assigned locker",
+            }
+
+        if existing_locker.status != LockerStatus.OCCUPIED or not existing_locker.is_occupied:
+            return {
+                "card_id": card_id,
+                "action": "denied",
+                "locker_number": existing_locker.locker_number,
+                "member_name": member.name,
+                "reason": "Assigned locker is not occupied",
+            }
+
+        released = Locker(
+            locker_number=existing_locker.locker_number,
+            status=LockerStatus.VACANT,
+            is_occupied=False,
+            card_id=None,
+            assigned_at=None,
+        )
+        await self.repository.save_locker(released)
+        logger.info(f"Released locker #{locker_number} for card_id: {card_id}")
+        return {
+            "card_id": card_id,
+            "action": "release",
+            "locker_number": locker_number,
+            "member_name": member.name,
+            "reason": f"Locker #{locker_number} released successfully",
+        }
 
     async def get_all_lockers(self):
         """Retrieve all locker states."""

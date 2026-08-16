@@ -112,7 +112,29 @@ class MQTTMessageHandler:
             logger.error("Missing card_id in locker request payload.")
             return
 
-        result = await self.locker_service.process_locker_scan(card_id)
+        operation = payload.get("operation", "scan")
+        if operation == "scan":
+            result = await self.locker_service.process_locker_scan(card_id)
+        elif operation == "release":
+            locker_number = payload.get("locker_number")
+            if not isinstance(locker_number, int) or isinstance(locker_number, bool) or locker_number <= 0:
+                result = {
+                    "card_id": card_id,
+                    "action": "denied",
+                    "locker_number": None,
+                    "member_name": None,
+                    "reason": "A valid locker_number is required for release",
+                }
+            else:
+                result = await self.locker_service.release_locker(card_id, locker_number)
+        else:
+            result = {
+                "card_id": card_id,
+                "action": "denied",
+                "locker_number": None,
+                "member_name": None,
+                "reason": f"Unsupported locker operation: {operation}",
+            }
 
         # Publish response to ESP32
         response_payload = json.dumps(result)
