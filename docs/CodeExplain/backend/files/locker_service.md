@@ -24,7 +24,7 @@ MQTT handler và REST route gọi service; service chỉ gọi `BaseRepository` 
 
 ## Phân biệt quan trọng
 
-`access` mở relay nhưng giữ quyền sở hữu. `release` xóa quyền sở hữu trong Firebase. Force-release REST chỉ đổi database, không gửi lệnh mở vật lý.
+`access` cho phép ESP32 unlock servo nhưng giữ quyền sở hữu. `release` xóa quyền sở hữu trong Firebase sau khi ESP32 đã xác nhận physical door flow và khóa servo. Force-release REST chỉ đổi database, không gửi lệnh phần cứng.
 
 ## Cách giải thích khi bảo vệ
 

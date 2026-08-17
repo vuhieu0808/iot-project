@@ -15,7 +15,7 @@ GymTag tách phần cứng, nghiệp vụ và giao diện thành ba lớp. ESP32
 
 | Thành phần | Trách nhiệm | Điểm vào chính |
 |---|---|---|
-| ESP32 | RFID locker, DHT22, relay, quạt | `esp32/src/main.cpp` |
+| ESP32 | RFID locker, 4 servo/door switch, DHT22, quạt | `esp32/src/main.cpp` |
 | MQTT broker | Chuyển message giữa ESP32 và backend | `test.mosquitto.org:1883` trong firmware |
 | FastAPI backend | Luật nghiệp vụ, REST, MQTT handler, WebSocket | `lifespan()` trong `backend/app/main.py` |
 | Firebase RTDB | Member, locker, log, môi trường và ngưỡng | `FirebaseRepository` |
@@ -39,8 +39,9 @@ GymTag tách phần cứng, nghiệp vụ và giao diện thành ba lớp. ESP32
 | DHT22 GPIO 15 | Đã triển khai và có trong Wokwi |
 | Quạt/LED GPIO 12 | Đã triển khai và có trong Wokwi |
 | RC522 GPIO 21/4 | Firmware đã triển khai, Wokwi chưa nối |
-| Relay locker | Triển khai một phần: có logic nhưng `LOCKER_RELAY_COUNT=0` |
-| Nút release | Triển khai một phần: có logic nhưng `RELEASE_BUTTON_PIN=-1` |
+| Servo locker | Đã triển khai 4 servo: GPIO 25/26/27/32, 0° locked và 90° unlocked |
+| Door switch | Đã triển khai 4 button: GPIO 13/14/16/17, pressed/LOW là closed |
+| Nút release | Đã triển khai GPIO33, active-low với `INPUT_PULLUP` |
 | RFID cửa check-in/out | Backend có protocol; firmware hiện tại chưa có module |
 
 ## Cấu trúc thư mục

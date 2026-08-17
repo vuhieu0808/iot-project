@@ -1,44 +1,41 @@
-# State machine locker trên ESP32
-
-Nguồn: `enum class State` trong `esp32/src/locker_controller.cpp`.
+# State machine locker dùng servo
 
 ```mermaid
 stateDiagram-v2
     [*] --> IDLE
-    IDLE --> WAITING_SCAN: đọc card và publish scan
-    WAITING_SCAN --> MEMBER_SESSION: assign/access hợp lệ
-    WAITING_SCAN --> COOLDOWN: denied/lỗi/timeout
-    MEMBER_SESSION --> WAITING_RELEASE: nhấn nút release
-    MEMBER_SESSION --> COOLDOWN: hết 30 giây
-    WAITING_RELEASE --> COOLDOWN: release thành công
-    WAITING_RELEASE --> MEMBER_SESSION: denied/timeout
-    COOLDOWN --> IDLE: hết cooldown và relay tắt
+    IDLE --> WAITING_BACKEND: scan RFID
+    WAITING_BACKEND --> WAIT_DOOR_OPEN: assign/access, servo unlock
+    WAITING_BACKEND --> COOLDOWN: denied/lỗi/timeout
+    WAIT_DOOR_OPEN --> WAIT_DOOR_CLOSE: door closed → open
+    WAIT_DOOR_OPEN --> COOLDOWN: timeout khi door vẫn closed
+    WAIT_DOOR_CLOSE --> COOLDOWN: door close, không release
+    WAIT_DOOR_CLOSE --> WAITING_RELEASE_RESPONSE: door close, releasePending
+    WAITING_RELEASE_RESPONSE --> COOLDOWN: response/timeout
+    COOLDOWN --> IDLE: 5 giây
 ```
 
 ## `IDLE`
 
-Cho phép lần quét card mới. `handleCardScan()` bỏ qua card ở mọi state khác để không ghi đè phiên đang chạy.
+Cho phép scan mới. RELEASE bị ignore.
 
-## `WAITING_SCAN`
+## `WAITING_BACKEND`
 
-Chờ response cho operation scan. Chỉ `assign` hoặc `access` với card/số locker hợp lệ mới mở relay và vào phiên member. `denied`, payload sai hoặc timeout dẫn đến cooldown.
+Chờ assign/access. Response hợp lệ phải có locker #1–#4; servo tương ứng chuyển 90°.
 
-## `MEMBER_SESSION`
+## `WAIT_DOOR_OPEN`
 
-Giữ card, member và locker hiện tại. Controller theo dõi nút release và timeout 30 giây. Hết phiên chỉ xóa state cục bộ, không tự trả locker trong Firebase.
+Ghi nhận door closed ban đầu rồi bắt buộc chờ released/HIGH. Điều này ngăn servo khóa ngay khi button vẫn pressed lúc vừa unlock.
 
-## `WAITING_RELEASE`
+## `WAIT_DOOR_CLOSE`
 
-Chờ backend xác nhận quyền sở hữu. `release` thành công kết thúc phiên; `denied` hoặc timeout quay lại member session để tránh mất ngữ cảnh.
+Chờ pressed/LOW. Khi closed, servo chuyển 0°. Nếu không release pending thì kết thúc physical session ngay; nếu có thì mới publish release.
+
+## `WAITING_RELEASE_RESPONSE`
+
+Servo đã locked. Response `release` chỉ xác nhận backend/Firebase đã chuyển locker vacant; không unlock lại.
 
 ## `COOLDOWN`
 
-Chặn quét mới đến khi đủ thời gian cooldown và relay đã tắt, sau đó xóa dữ liệu phiên và về `IDLE`.
+Chặn scan 5 giây rồi về `IDLE`.
 
-## Cooldown RFID riêng
-
-`LockerRfid::readCard()` cũng áp dụng 5000 ms từ UID được chấp nhận gần nhất. State machine bảo vệ phiên nghiệp vụ; cooldown reader ngăn RC522 đọc lặp quá nhanh.
-
-## Chống response cũ
-
-Controller đối chiếu `card_id` trong response với card hiện tại và kiểm tra action phù hợp state. Response đến trễ hoặc thuộc card khác bị bỏ qua mà không kích GPIO.
+Door timeout 30 giây chỉ là fail-safe. Door đang open không bị force-lock.

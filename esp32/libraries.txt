@@ -4,3 +4,5 @@
 DHT sensor library for ESPx
 PubSubClient
 MFRC522
+ArduinoJson
+ESP32Servo

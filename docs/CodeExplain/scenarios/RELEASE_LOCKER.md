@@ -1,5 +1,10 @@
 # Kịch bản: trả locker
 
-Trong phiên member, thao tác nút release hợp lệ khiến ESP32 publish cùng topic request với payload `operation: "release"`, `card_id` và `locker_number`. Backend kiểm tra operation và kiểu/số locker, rồi gọi `LockerService.release_locker()`.
+1. Card scan nhận `access` và servo unlock.
+2. Người dùng nhấn RELEASE trước khi physical session kết thúc; firmware chỉ đặt `releasePending=true`.
+3. Door button released biểu diễn open; pressed lại biểu diễn closed.
+4. Firmware khóa servo về 0° rồi mới publish `operation=release` cùng card/số locker.
+5. Backend xác minh member, ownership, số locker và status occupied; sau đó ghi vacant.
+6. ESP32 nhận `action=release`, clear session và không di chuyển servo lần nữa.
 
-Service yêu cầu member tồn tại, locker tồn tại/đang dùng, đúng số và đúng `card_id`; sau đó cập nhật locker thành `vacant`. Response thành công có `action: "release"`. ESP32 nhận response, kết thúc phiên và vào cooldown. Cấu hình hiện tại đặt `RELEASE_BUTTON_PIN = -1`, nên nhánh nút vật lý bị vô hiệu cho đến khi gán GPIO thật.
+Nhờ thứ tự này, backend không thể cấp lại locker khi cửa cũ vẫn đang mở.

@@ -1,49 +1,45 @@
 # Các file của module locker
 
-## `esp32/include/lockerRFID.h`
+## `esp32/include/lockerRFID.h` và `src/lockerRFID.cpp`
 
-Khai báo API RFID: `begin()` và `readCard(String&)`. `String&` là tham chiếu C++; hàm ghi UID chuẩn hóa vào object của caller.
-
-## `esp32/src/lockerRFID.cpp`
-
-Namespace ẩn giữ trạng thái riêng của file: `reader`, `lastAcceptedAt`, `hasAcceptedCard`.
-
-- `normalizeUid(const MFRC522::Uid&)`: nhận UID RC522 và trả Arduino `String` uppercase, hai ký tự hex mỗi byte.
-- `begin()`: được `main.setup()` gọi để khởi động SPI/RC522.
-- `readCard(String&)`: mỗi loop kiểm tra cooldown, phát hiện/đọc card, chuẩn hóa UID, gọi `PICC_HaltA()` và `PCD_StopCrypto1()`. Chỉ trả `true` khi chấp nhận một lần đọc.
-
-## `esp32/include/locker_controller.h`
-
-Khai báo `begin`, `update`, `handleCardScan`, `handleMqttPayload`. Payload MQTT dùng con trỏ buffer chỉ đọc và độ dài tường minh.
-
-## `esp32/src/locker_controller.cpp`
-
-`enum class State` tạo các trạng thái có scope rõ ràng. Card ID, member, số locker, timer và trạng thái relay/nút được giữ riêng trong `.cpp`.
-
-- `begin()`: đưa relay đã map về inactive và cấu hình nút pull-up tùy chọn.
-- `handleCardScan()`: chỉ nhận card ở `IDLE`, lưu card và publish operation `scan`.
-- `handleMqttPayload()`: parse JSON, đối chiếu card/state/action/số locker rồi quyết định mở relay hoặc chuyển state.
-- `update()`: scheduler không blocking cho pulse relay, timeout backend, debounce/release, timeout phiên và cooldown.
-- `openLocker()` và `stopRelay()`: ánh xạ số locker bắt đầu từ 1 sang mảng GPIO bắt đầu từ 0, có kiểm tra biên.
-- `releaseButtonPressed()`: debounce nút active-low bằng `millis()`.
+`begin()` khởi tạo SPI/MFRC522. `readCard(String&)` đọc UID, chuẩn hóa uppercase không dấu `:`, halt card và áp dụng cooldown 5 giây.
 
 ## `esp32/include/hardware_config.h`
 
-Nguồn tập trung cho GPIO, polarity và timing. Mapping relay/nút bị tắt có chủ ý để tránh kích nhầm chân chưa xác nhận.
+Tập trung mapping 4 servo, 4 door switch, release button, góc servo và timeout:
+
+```text
+servo: 25, 26, 27, 32
+door:  13, 14, 16, 17
+release: 33
+locked/unlocked: 0°/90°
+```
+
+## `esp32/src/locker_controller.cpp`
+
+- `begin()`: attach bốn servo, đặt 0°, cấu hình năm button `INPUT_PULLUP`.
+- `handleCardScan()`: chỉ nhận ở `IDLE`, publish scan và vào `WAITING_BACKEND`.
+- `handleMqttPayload()`: kiểm tra card/state/action/số locker; assign/access unlock servo; release response chỉ clear session.
+- `update()`: debounce input, đánh dấu release pending, theo dõi door transition, timeout và cooldown.
+- `unlockLocker()`/`lockLocker()`: ghi góc servo đã định nghĩa tập trung.
+- `isDoorClosed()`: đọc stable door state của đúng locker.
+- `finishPhysicalSession()`: khóa servo trước; chỉ publish release nếu `releasePending`.
+
+`DebouncedInput` giữ raw/stable/changedAt cho từng button. Chỉ door switch của `currentLockerNumber` tác động session.
 
 ## `esp32/src/main.cpp`
 
-Composition root của firmware: khởi tạo module, chuyển MQTT topic đến controller và gọi các hàm `update()` trong loop.
+Khởi tạo RFID/controller/MQTT và chuyển `gymtag/locker/response` đến `LockerController::handleMqttPayload()`.
 
-## Quan hệ gọi
+## Dependency
 
 ```text
-main.loop → LockerRfid::readCard → LockerController::handleCardScan
-MqttManager callback → main.routeMqttMessage → LockerController::handleMqttPayload
-LockerController → MqttManager::publish
-LockerController → digitalWrite/read GPIO
+LockerRfid → LockerController
+LockerController → ESP32Servo + GPIO + MqttManager
+MqttManager → broker MQTT
+backend MQTT handler → LockerService → Firebase
 ```
 
 ## Cách giải thích khi bảo vệ
 
-“Locker được tách thành RFID reader và controller. RFID chỉ đọc/chuẩn hóa UID; controller giữ state machine, dựng MQTT request và kiểm tra response. State có thể ghi được giấu trong một file để tránh global state rải rác.”
+“Backend quyết định ownership; ESP32 quyết định physical safety. Servo chỉ khóa sau khi cửa đã đi từ đóng sang mở rồi đóng lại. Release database chỉ xảy ra sau khi servo đã khóa.”
