@@ -1,4 +1,4 @@
-#include "../include/lockerRFID.h"
+#include "../include/door_out_RFID.h"
 
 #include <MFRC522.h>
 #include <SPI.h>
@@ -6,7 +6,7 @@
 #include "hardware_config.h"
 
 namespace {
-MFRC522 reader(HardwareConfig::RFID_LOCKER_SS_PIN, HardwareConfig::RFID_RST_PIN);
+MFRC522 reader(HardwareConfig::RFID_DOOR_OUT_SS_PIN, HardwareConfig::RFID_RST_PIN);
 unsigned long lastAcceptedAt = 0;
 bool hasAcceptedCard = false;
 
@@ -22,11 +22,11 @@ String normalizeUid(const MFRC522::Uid& uid) {
 }
 }  // namespace
 
-namespace LockerRfid {
+namespace DoorOutRfid {
 void begin() {
     SPI.begin();
     reader.PCD_Init();
-    Serial.println("Locker RC522 initialized.");
+    Serial.println("Door RC522 initialized.");
 }
 
 bool readCard(String& cardId) {
@@ -42,4 +42,4 @@ bool readCard(String& cardId) {
     Serial.printf("RFID accepted: %s\n", cardId.c_str());
     return true;
 }
-}  // namespace LockerRfid
+}  // namespace DoorRfid

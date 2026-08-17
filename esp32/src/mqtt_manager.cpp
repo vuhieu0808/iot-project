@@ -9,6 +9,7 @@ constexpr char MQTT_HOST[] = "broker.hivemq.com";
 constexpr uint16_t MQTT_PORT = 1883;
 constexpr char FAN_TOPIC[] = "gymtag/environment/fan_control";
 constexpr char LOCKER_TOPIC[] = "gymtag/locker/response";
+constexpr char DOOR_TOPIC[] = "gymtag/door/response";
 constexpr unsigned long WIFI_RETRY_MS = 10000;
 constexpr unsigned long MQTT_RETRY_MS = 5000;
 
@@ -41,6 +42,7 @@ void connectMqtt(unsigned long now) {
     }
     mqttClient.subscribe(FAN_TOPIC, 0);
     mqttClient.subscribe(LOCKER_TOPIC, 0);
+    mqttClient.subscribe(DOOR_TOPIC, 0);
     Serial.printf("MQTT connected as %s.\n", clientId);
 }
 }  // namespace
