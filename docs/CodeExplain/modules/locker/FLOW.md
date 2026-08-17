@@ -1,56 +1,29 @@
 # Luồng module locker
 
-## Phần cứng
+## Phần cứng ESP32
 
-- MFRC522: SCK18, MISO19, MOSI23, SS21, RST4.
-- Servo #1–#4: GPIO 25, 26, 27, 32.
-- Door button #1–#4: GPIO 13, 14, 16, 17, `INPUT_PULLUP`.
+- MFRC522: SPI SCK18, MISO19, MOSI23, SS21, RST4.
+- LCD RFID station: I2C SDA22, SCL25, address `0x27`.
+- Servo locker #1–#3: GPIO26, GPIO27, GPIO32.
+- Door button #1–#3: GPIO13, GPIO14, GPIO16, `INPUT_PULLUP`.
 - RELEASE chung: GPIO33, `INPUT_PULLUP`.
 
-Servo dùng ESP32Servo: 0° là locked, 90° là unlocked. Door button pressed/LOW nghĩa là closed; released/HIGH nghĩa là open.
+Door pressed/LOW là closed; released/HIGH là open. Servo 0° là locked, 90° là unlocked.
 
-## Luồng assign/access
-
-```text
-RFID scan
-→ publish operation=scan
-→ WAITING_BACKEND
-→ backend assign/access
-→ servo UNLOCKED và giữ 90°
-→ WAIT_DOOR_OPEN, bắt buộc thấy CLOSED → OPEN
-→ WAIT_DOOR_CLOSE
-→ thấy OPEN → CLOSED
-→ servo LOCKED 0°
-→ nếu không releasePending: COOLDOWN → IDLE
-```
-
-Backend assign làm locker occupied trước khi response. Access không đổi ownership. Scan không bao giờ tự release.
-
-## Luồng release
-
-Trong `WAIT_DOOR_OPEN` hoặc `WAIT_DOOR_CLOSE`, nhấn RELEASE chỉ đặt `releasePending=true`. Firmware chưa gửi MQTT và backend chưa chuyển vacant.
-
-Sau khi door đã open rồi close:
+## Assign/access
 
 ```text
-servo LOCKED
-→ publish operation=release cùng locker_number
-→ WAITING_RELEASE_RESPONSE
-→ backend validate và ghi vacant
-→ response release
-→ clear session; không mở servo lần nữa
+RFID scan → MQTT operation=scan → backend assign/access
+→ LockerController hiển thị LCD assign/authorized
+→ servo đúng locker unlock
+→ chỉ door của locker active CLOSED → OPEN → CLOSED
+→ servo lock → cooldown → IDLE
 ```
+
+## Release
+
+RELEASE chỉ đặt `releasePending` trong session. Sau door open/close, servo lock trước, rồi ESP32 publish `operation=release`. Response release hiển thị `Locker Released` và chỉ clear session; backend ownership flow không thay đổi.
 
 ## Timeout
 
-- Backend: 8000 ms.
-- Door action: 30000 ms.
-- Cooldown RFID/state: 5000 ms.
-
-Nếu door vẫn closed và chưa từng mở sau 30 giây, servo khóa và session kết thúc. Nếu door đang open, firmware chỉ log rồi tiếp tục chờ, không ép khóa cửa đang mở.
-
-## Tính không blocking
-
-RFID cooldown, debounce, backend timeout và door timeout đều dùng `millis()`. `MqttManager::update()`, DHT và door detection tiếp tục chạy; không có `delay()` trong controller.
-
-Xem [state machine](STATE_MACHINE.md), [chi tiết file](FILES.md) và [kịch bản release](../../scenarios/RELEASE_LOCKER.md).
+Backend: 8 giây. Door action: 30 giây. RFID/state cooldown: 5 giây. Tất cả dùng `millis()`, không blocking MQTT/DHT/display.

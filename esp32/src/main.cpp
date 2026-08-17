@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "display_controller.h"
 #include "../include/lockerRFID.h"
 #include "environment_sensor.h"
 #include "fan_controller.h"
@@ -26,6 +27,7 @@ void setup() {
     FanController::begin();
     EnvironmentSensor::begin();
     LockerRfid::begin();
+    DisplayController::begin();
     LockerController::begin();
     MqttManager::begin(routeMqttMessage);
 }
@@ -37,4 +39,5 @@ void loop() {
     String cardId;
     if (LockerRfid::readCard(cardId)) LockerController::handleCardScan(cardId);
     LockerController::update();
+    DisplayController::update();
 }

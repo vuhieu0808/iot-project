@@ -13,4 +13,4 @@ RFID Card A
 → session kết thúc; Firebase vẫn occupied
 ```
 
-Backend demo cần chỉ có Locker #1–#4 assignable để mọi response đều có servo mapping.
+Backend demo cần chỉ có Locker #1–#3 assignable để mọi response đều có servo mapping.

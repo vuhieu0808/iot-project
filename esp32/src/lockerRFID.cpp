@@ -9,6 +9,7 @@ namespace {
 MFRC522 reader(HardwareConfig::RFID_SS_PIN, HardwareConfig::RFID_RST_PIN);
 unsigned long lastAcceptedAt = 0;
 bool hasAcceptedCard = false;
+String lastAcceptedCardId;
 
 String normalizeUid(const MFRC522::Uid& uid) {
     String value;
@@ -31,14 +32,20 @@ void begin() {
 
 bool readCard(String& cardId) {
     const unsigned long now = millis();
-    if (hasAcceptedCard && now - lastAcceptedAt < HardwareConfig::RFID_COOLDOWN_MS) return false;
     if (!reader.PICC_IsNewCardPresent() || !reader.PICC_ReadCardSerial()) return false;
 
     cardId = normalizeUid(reader.uid);
     reader.PICC_HaltA();
     reader.PCD_StopCrypto1();
+
+    if (hasAcceptedCard && cardId == lastAcceptedCardId &&
+        now - lastAcceptedAt < HardwareConfig::RFID_COOLDOWN_MS) {
+        return false;
+    }
+
     lastAcceptedAt = now;
     hasAcceptedCard = true;
+    lastAcceptedCardId = cardId;
     Serial.printf("RFID accepted: %s\n", cardId.c_str());
     return true;
 }
