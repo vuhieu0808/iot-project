@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "author": "Thịnh Hoàng",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 28.8, "left": -33.56, "attrs": {} },
+    {
+      "type": "wokwi-lcd2004",
+      "id": "lcd3",
+      "top": -166.4,
+      "left": 140,
+      "attrs": { "pins": "i2c" }
+    },
+    { "type": "board-mfrc522", "id": "rfid1", "top": 256.55, "left": 147.44, "attrs": {} },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": -41.8,
+      "left": 547.2,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn2",
+      "top": -137.8,
+      "left": 547.2,
+      "attrs": { "color": "green", "xray": "1" }
+    },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -94.5, "left": -272.9, "attrs": {} },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 139.2,
+      "left": -144.55,
+      "rotate": 90,
+      "attrs": { "value": "10000" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r2",
+      "top": 148.8,
+      "left": -106.15,
+      "rotate": 90,
+      "attrs": { "value": "10000" }
+    }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "lcd3:GND", "esp:GND.2", "black", [ "h-38.4", "v192" ] ],
+    [ "esp:5V", "lcd3:VCC", "red", [ "h-19.05", "v-220.8", "h163.2", "v-134.5" ] ],
+    [ "lcd3:SDA", "esp:21", "green", [ "h-19.2", "v221" ] ],
+    [ "lcd3:SCL", "esp:22", "gold", [ "h-9.6", "v182.7" ] ],
+    [ "esp:3V3", "rfid1:3.3V", "red", [ "h-28.65", "v307.2" ] ],
+    [ "esp:4", "rfid1:RST", "purple", [ "h19.2", "v182.4" ] ],
+    [ "esp:GND.3", "rfid1:GND", "black", [ "h28.8", "v230.4" ] ],
+    [ "rfid1:MISO", "esp:19", "blue", [ "h-48", "v-201.6" ] ],
+    [ "esp:23", "rfid1:MOSI", "gold", [ "h48", "v249.6" ] ],
+    [ "esp:5", "rfid1:SDA", "green", [ "h67.2", "v153.6" ] ],
+    [ "rfid1:SCK", "esp:18", "orange", [ "h-28.8", "v-172.8" ] ],
+    [ "ultrasonic1:TRIG", "esp:12", "blue", [ "v0" ] ],
+    [ "ultrasonic1:ECHO", "esp:14", "green", [ "v0" ] ],
+    [ "ultrasonic1:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "ultrasonic1:VCC", "esp:5V", "red", [ "v0" ] ],
+    [ "btn2:2.l", "esp:32", "green", [ "h-9.6", "v-143.8", "h-556.8", "v364.8" ] ],
+    [ "btn1:2.l", "esp:33", "green", [ "h-38.4", "v-211", "h-470.4", "v345.6" ] ],
+    [ "esp:GND.1", "r2:2", "black", [ "h0" ] ],
+    [ "esp:GND.1", "r1:2", "black", [ "h0" ] ],
+    [ "r1:1", "esp:32", "cyan", [ "h0" ] ],
+    [ "r2:1", "esp:33", "cyan", [ "h0" ] ],
+    [ "btn1:1.l", "esp:3V3", "red", [ "h-28.8", "v-201.6", "h-489.6", "v288" ] ],
+    [ "btn2:1.l", "esp:3V3", "red", [ "v-134.4", "h-576", "v316.8" ] ]
+  ],
+  "dependencies": {}
+}
