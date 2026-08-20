@@ -2,13 +2,14 @@
 
 #include <cstring>
 
-#include "../include/lockerRFID.h"
 #include "../include/door_in_RFID.h"
 #include "../include/door_out_RFID.h"
+#include "../include/lockerRFID.h"
+#include "display_controller.h"
+#include "door_controller.h"
 #include "environment_sensor.h"
 #include "fan_controller.h"
 #include "locker_controller.h"
-#include "door_controller.h"
 #include "mqtt_manager.h"
 
 namespace {
@@ -32,6 +33,7 @@ void setup() {
     FanController::begin();
     EnvironmentSensor::begin();
     LockerRfid::begin();
+    DisplayController::begin();
     LockerController::begin();
     DoorInRfid::begin();
     DoorOutRfid::begin();
@@ -48,5 +50,6 @@ void loop() {
     if (DoorInRfid::readCard(cardId)) DoorController::handleCardScan(cardId, "in");
     if (DoorOutRfid::readCard(cardId)) DoorController::handleCardScan(cardId, "out");
     LockerController::update();
+    DisplayController::update();
     DoorController::update();
 }

@@ -14,8 +14,9 @@ flowchart LR
   API <-->|CRUD| Firebase[(Firebase RTDB)]
   ESP --> RFID[RC522]
   ESP --> DHT[DHT22]
-  ESP --> Servo[4 servo locker]
-  ESP --> Door[4 door switch]
+  ESP --> LCD[LCD1602 I2C]
+  ESP --> Servo[3 servo locker]
+  ESP --> Door[3 door switch]
   ESP --> Fan[Fan GPIO]
 ```
 
@@ -25,11 +26,11 @@ flowchart LR
 - Một topic locker request dùng field `operation` để phân biệt `scan` và `release`.
 - UID RFID được chuẩn hóa uppercase, hai ký tự hex cho mỗi byte.
 - Locker được cấp theo số nhỏ nhất trong danh sách `vacant`.
-- Servo giữ 90° khi unlock và về 0° sau door CLOSED → OPEN → CLOSED; cooldown RFID 5000 ms, timeout backend 8000 ms và door fail-safe 30000 ms.
+- Servo GPIO trực tiếp giữ 90° khi unlock và về 0° sau door CLOSED → OPEN → CLOSED. LCD I2C hiển thị response assign/access/denied/release; cooldown RFID 5000 ms, timeout backend 8000 ms và door fail-safe 30000 ms.
 - MQTT hiện dùng QoS 0, không retained; reconnect không tự phát lại lệnh cũ.
 - Firebase RTDB lưu members, lockers, check logs, environment readings và thresholds.
 - Browser không dùng MQTT: REST cho command/query, WebSocket cho server push.
-- Wokwi hiện có MFRC522, 4 servo, 4 door button, RELEASE button, DHT22 và fan LED; không dùng relay locker.
+- Wokwi hiện có MFRC522, LCD1602 I2C, 3 servo, 3 door button, RELEASE button, DHT22 và fan LED; không dùng relay locker.
 
 ## Câu hỏi và trả lời
 
