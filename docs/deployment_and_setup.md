@@ -33,6 +33,10 @@ HUMIDITY_THRESHOLD=80.0
 # Telegram Bot Alert Configuration (Optional)
 TELEGRAM_BOT_TOKEN=your_bot_token_here
 TELEGRAM_CHAT_ID=your_chat_id_here
+TELEGRAM_PROXY=
+# Periodic alert reminder interval when threshold remains exceeded (in minutes, default: 15)
+ALERT_REMINDER_INTERVAL_MINUTES=15
+
 
 # Firebase Realtime Database
 FIREBASE_CREDENTIALS_PATH=firebase-admin-sdk.json

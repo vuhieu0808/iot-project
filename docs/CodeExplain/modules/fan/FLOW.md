@@ -14,11 +14,15 @@ DHT22 → EnvironmentService so sánh ngưỡng
 → GPIO 12 HIGH/LOW
 ```
 
-## Luồng thủ công
-
-Admin UI gửi `POST /api/admin/environment/fan`; backend ghi nhận trạng thái, publish cùng MQTT topic và phát dữ liệu môi trường qua WebSocket.
+## Luồng thủ công & Ưu tiên của Admin
+ 
+- Admin UI gửi `POST /api/admin/environment/fan` với `{"command": "on" | "off" | "auto"}`.
+- Lệnh thủ công (`on` hoặc `off`) có **ưu tiên tuyệt đối**: Backend bật cờ `manual_mode = True`, khóa trạng thái quạt và bỏ qua việc cảm biến tự động tắt/bật lại.
+- Lệnh `auto` hủy bỏ chế độ thủ công, trả lại quyền điều khiển tự động cho thuật toán ngưỡng cảm biến.
+- Backend publish `gymtag/environment/fan_control` và phát dữ liệu môi trường cập nhật qua WebSocket.
 
 ## Payload và GPIO
+
 
 Payload là `{"fan":"on|off","reason":"..."}`. `FAN_PIN=12`; `HIGH` là bật, `LOW` là tắt. `begin()` luôn đưa chân về `LOW`.
 

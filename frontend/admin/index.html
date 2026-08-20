@@ -262,9 +262,12 @@
                 </div>
 
                 <!-- Action Button -->
-                <div class="threshold-btn-wrapper">
+                <div class="threshold-btn-wrapper" style="display: flex; align-items: center; gap: 0.5rem;">
                   <button type="button" id="btn-save-thresholds" class="btn btn-primary btn-sm">
                     <span>💾 Lưu Cấu Hình</span>
+                  </button>
+                  <button type="button" id="btn-test-telegram" class="btn btn-secondary btn-sm" title="Gửi thông báo thử nghiệm tới Telegram">
+                    <span>📲 Thử Bot Telegram</span>
                   </button>
                   <span id="threshold-save-status" class="threshold-status-badge"></span>
                 </div>
@@ -276,11 +279,13 @@
             <div class="section-header" style="flex-wrap: wrap; gap: 1rem;">
               <h2>🌡️ Lịch Sử Đo Môi Trường (DHT22)</h2>
               <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-                <div id="fan-control-widget" style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div id="fan-control-widget" style="display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.35rem 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); flex-wrap: wrap;">
                   <span style="font-size: 0.85rem; color: var(--text-secondary);">Quạt thông gió:</span>
                   <span id="admin-fan-badge" class="badge badge-secondary">--</span>
-                  <button id="btn-fan-on" class="btn btn-primary btn-sm">🌀 Bật quạt</button>
-                  <button id="btn-fan-off" class="btn btn-danger btn-sm">🛑 Tắt quạt</button>
+                  <span id="admin-fan-mode-badge" class="badge badge-secondary" title="Chế độ điều khiển quạt">🤖 TỰ ĐỘNG</span>
+                  <button id="btn-fan-on" class="btn btn-primary btn-sm" title="Admin ép BẬT quạt (Ưu tiên cao nhất)">🌀 Bật quạt</button>
+                  <button id="btn-fan-off" class="btn btn-danger btn-sm" title="Admin ép TẮT quạt (Ưu tiên cao nhất)">🛑 Tắt quạt</button>
+                  <button id="btn-fan-auto" class="btn btn-secondary btn-sm" title="Chuyển về chế độ Tự động theo ngưỡng cảm biến">🤖 Tự động (Auto)</button>
                 </div>
                 <button id="btn-refresh-env" class="btn btn-secondary btn-sm">🔄 Cập nhật</button>
               </div>

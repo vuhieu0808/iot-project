@@ -39,7 +39,7 @@ class LockerStatusRequest(BaseModel):
 
 class FanControlRequest(BaseModel):
     """Admin fan control command request model."""
-    command: str = Field(..., description="Fan command: 'on' or 'off'")
+    command: str = Field(..., description="Fan command: 'on', 'off', or 'auto'")
 
 
 class ThresholdUpdateRequest(BaseModel):
@@ -280,37 +280,77 @@ async def control_admin_fan(
     request: Request,
     _: str = Depends(require_admin),
 ):
-    """Manually turn ventilation fan ON or OFF (Admin Auth Required)."""
-    if body.command not in ["on", "off"]:
-        raise HTTPException(status_code=400, detail="Command must be 'on' or 'off'.")
+    """Manually turn ventilation fan ON, OFF, or switch to AUTO mode (Admin Auth Required)."""
+    if body.command not in ["on", "off", "auto"]:
+        raise HTTPException(status_code=400, detail="Command must be 'on', 'off', or 'auto'.")
 
-    fan_on = (body.command == "on")
     env_service = request.app.state.environment_service
     mqtt_client = request.app.state.mqtt_client
-
-    # 1. Update service internal state & log reading
-    reading = await env_service.set_fan_state(fan_on, reason=f"Manual control ({body.command.upper()}) by Admin")
-
-    # 2. Publish MQTT command to ESP32
     from app.mqtt.topics import Topics
     import json
-    fan_payload = json.dumps({
-        "fan": body.command,
-        "reason": "Manual control by Admin"
-    })
-    mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
 
-    # 3. Broadcast WS update to all clients
-    await ws_manager.broadcast({
-        "type": "environment_update",
-        "data": reading.model_dump()
-    })
+    if body.command == "auto":
+        # 1. Return to AUTO mode and re-evaluate with current sensor reading
+        result = await env_service.set_auto_mode()
+        fan_on = env_service.fan_currently_on
+        reading = result.get("reading") or await env_service.get_latest_reading()
 
-    return {
-        "message": f"Đã gửi lệnh {body.command.upper()} quạt thông gió thành công!",
-        "fan_on": fan_on,
-        "reading": reading,
-    }
+        # 2. Publish MQTT command if fan state needs to change
+        if result.get("fan_control_needed") and result.get("fan_command"):
+            fan_payload = json.dumps({
+                "fan": result["fan_command"],
+                "reason": "Chuyển về chế độ Tự động (AUTO) bởi Admin"
+            })
+            mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
+
+        # 3. Broadcast WS update to all clients
+        if reading:
+            await ws_manager.broadcast({
+                "type": "environment_update",
+                "data": {
+                    **reading.model_dump(),
+                    "manual_mode": False,
+                }
+            })
+
+        return {
+            "message": "Đã chuyển quạt thông gió sang chế độ TỰ ĐỘNG (AUTO) thành công!",
+            "fan_on": fan_on,
+            "manual_mode": False,
+            "reading": reading,
+        }
+    else:
+        fan_on = (body.command == "on")
+        # 1. Update service internal state & set manual override to True (Highest priority)
+        reading = await env_service.set_fan_state(
+            fan_on=fan_on,
+            manual=True,
+            reason=f"Lệnh thủ công ({body.command.upper()}) bởi Admin (Ưu tiên cao nhất)"
+        )
+
+        # 2. Publish MQTT command to ESP32
+        fan_payload = json.dumps({
+            "fan": body.command,
+            "reason": f"Lệnh thủ công ({body.command.upper()}) bởi Admin"
+        })
+        mqtt_client.publish(Topics.ENVIRONMENT_FAN_CONTROL, fan_payload)
+
+        # 3. Broadcast WS update to all clients
+        await ws_manager.broadcast({
+            "type": "environment_update",
+            "data": {
+                **reading.model_dump(),
+                "manual_mode": True,
+            }
+        })
+
+        return {
+            "message": f"Đã gửi lệnh {body.command.upper()} quạt thông gió (Thủ công - Ưu tiên cao nhất) thành công!",
+            "fan_on": fan_on,
+            "manual_mode": True,
+            "reading": reading,
+        }
+
 
 
 @router.get("/environment/thresholds", response_model=ThresholdResponse)
@@ -346,4 +386,35 @@ async def update_environment_thresholds(
     })
 
     return updated
+
+
+@router.post("/telegram/test")
+async def test_telegram_alert(
+    request: Request,
+    _: str = Depends(require_admin),
+):
+    """Send a test notification to configured Telegram Chat ID (Admin Auth Required)."""
+    notif_service = request.app.state.notification_service
+    if not notif_service or not notif_service.is_configured:
+        raise HTTPException(
+            status_code=400,
+            detail="Telegram Bot Token hoặc Chat ID chưa được cấu hình trong file .env.",
+        )
+
+    from datetime import datetime
+    now_str = datetime.now().strftime("%H:%M:%S %d/%m/%Y")
+    test_msg = (
+        f"🔔 <b>THỬ NGHIỆM THÔNG BÁO GYMTAG</b> 🔔\n\n"
+        f"🕒 <b>Thời gian:</b> <code>{now_str}</code>\n"
+        f"✅ Hệ thống GymTag kết nối thành công tới Telegram Bot!\n"
+        f"Cảnh báo nhiệt độ, độ ẩm và sự cố sẽ được gửi tức thì đến kênh này."
+    )
+    success = await notif_service.send_alert(test_msg, force=True)
+    if not success:
+        raise HTTPException(
+            status_code=502,
+            detail="Gửi thông báo Telegram thất bại. Vui lòng kiểm tra lại Bot Token, Chat ID hoặc kết nối mạng.",
+        )
+
+    return {"message": "Đã gửi thông báo thử nghiệm tới Telegram thành công!"}
 

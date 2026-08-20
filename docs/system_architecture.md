@@ -83,9 +83,9 @@ The platform coordinates edge microcontrollers (ESP32), an asynchronous Python b
 ### 3.3 Business Logic Services Layer (`app/services/`)
 - **`AccessService`**: Validates card existence, checks account active flag (`is_active`) and membership expiry date. Automatically determines whether an action is a `checkin` or `checkout`. When checking out, computes cumulative workout duration in minutes.
 - **`LockerService`**: Manages locker state transitions (`vacant`, `occupied`, `broken`). Ensures one-locker-per-member constraint, assigns the lowest vacant index, and releases assigned lockers when returned.
-- **`EnvironmentService`**: Evaluates DHT22 readings against dynamic thresholds. If temperature or humidity breaches limits, commands the fan ON and fires Telegram notifications. Manages dynamic threshold updates at runtime and supports manual fan override.
+- **`EnvironmentService`**: Evaluates DHT22 readings against dynamic thresholds using a **Hysteresis Deadband** (avoids rapid chattering). If limits are breached, commands fan ON and sends formatted HTML Telegram alerts. Enforces **Admin Manual Override Priority** (manual fan commands strictly take precedence over sensor readings), supports returning to `AUTO` mode, and issues periodic reminder notifications (`ALERT_REMINDER_INTERVAL_MINUTES`).
 - **`OccupancyService`**: Derives current facility head-count based on real-time check-in and check-out logs.
-- **`NotificationService`**: Dispatches formatted HTML alert messages to Telegram chats via Bot API.
+- **`NotificationService`**: Dispatches formatted HTML alert messages to Telegram chats via Bot API over a dedicated **IPv4 Transport** (bypassing ISP IPv6 blackholes) and supports optional proxy configurations.
 
 ### 3.4 Data & Persistence Layer (`app/repositories/`)
 - **`BaseRepository`**: Abstract base class defining all database interactions.
