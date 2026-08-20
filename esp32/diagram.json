@@ -12,19 +12,28 @@
     },
     {
       "type": "board-mfrc522",
-      "id": "rfid",
-      "top": -233.05,
-      "left": -524.56,
-      "rotate": 180,
+      "id": "lockerRfid",
+      "top": -281.05,
+      "left": 205.04,
       "attrs": {
         "uid": "01:02:03:04"
       }
     },
     {
+      "type": "wokwi-lcd1602",
+      "id": "lcd",
+      "top": -531.2,
+      "left": 149.6,
+      "attrs": {
+        "pins": "i2c",
+        "i2cAddress": "0x27"
+      }
+    },
+    {
       "type": "wokwi-pushbutton",
       "id": "releaseButton",
-      "top": 83,
-      "left": -393.6,
+      "top": -368.2,
+      "left": 240,
       "attrs": {
         "label": "RELEASE",
         "key": "R",
@@ -32,10 +41,31 @@
       }
     },
     {
+      "type": "board-mfrc522",
+      "id": "doorInRfid",
+      "top": 82.05,
+      "left": -516.44,
+      "rotate": 180,
+      "attrs": {
+        "uid": "11:22:33:44"
+      }
+    },
+    {
+      "type": "board-mfrc522",
+      "id": "doorOutRfid",
+      "top": 331.65,
+      "left": -516.44,
+      "rotate": 180,
+      "attrs": {
+        "uid": "55:66:77:88"
+      }
+    },
+    {
       "type": "wokwi-dht22",
       "id": "dht22",
-      "top": 300,
-      "left": -440,
+      "top": 225.6,
+      "left": -200.1,
+      "rotate": 270,
       "attrs": {
         "temperature": "24",
         "humidity": "40"
@@ -44,8 +74,8 @@
     {
       "type": "wokwi-led",
       "id": "fanLed",
-      "top": 313.2,
-      "left": -293.8,
+      "top": 400,
+      "left": 180,
       "attrs": {
         "color": "red",
         "label": "FAN"
@@ -54,8 +84,8 @@
     {
       "type": "wokwi-resistor",
       "id": "fanResistor",
-      "top": 349.85,
-      "left": -212.6,
+      "top": 436,
+      "left": 275,
       "rotate": 180,
       "attrs": {
         "value": "1000"
@@ -64,8 +94,8 @@
     {
       "type": "wokwi-servo",
       "id": "lockerServo1",
-      "top": -260,
-      "left": 430,
+      "top": -136.4,
+      "left": 470.4,
       "attrs": {
         "horn": "single"
       }
@@ -73,8 +103,8 @@
     {
       "type": "wokwi-pushbutton",
       "id": "doorButton1",
-      "top": -210,
-      "left": 690,
+      "top": -99.4,
+      "left": 710.4,
       "attrs": {
         "label": "DOOR 1 CLOSED",
         "key": "1",
@@ -84,8 +114,8 @@
     {
       "type": "wokwi-servo",
       "id": "lockerServo2",
-      "top": -70,
-      "left": 430,
+      "top": -20,
+      "left": 470,
       "attrs": {
         "horn": "single"
       }
@@ -93,8 +123,8 @@
     {
       "type": "wokwi-pushbutton",
       "id": "doorButton2",
-      "top": -20,
-      "left": 690,
+      "top": 15.8,
+      "left": 720,
       "attrs": {
         "label": "DOOR 2 CLOSED",
         "key": "2",
@@ -104,8 +134,8 @@
     {
       "type": "wokwi-servo",
       "id": "lockerServo3",
-      "top": 55.6,
-      "left": 441.6,
+      "top": 195,
+      "left": 470,
       "attrs": {
         "horn": "single"
       }
@@ -113,58 +143,13 @@
     {
       "type": "wokwi-pushbutton",
       "id": "doorButton3",
-      "top": 169.4,
-      "left": 691.2,
+      "top": 236.6,
+      "left": 720,
       "attrs": {
         "label": "DOOR 3 CLOSED",
         "key": "3",
         "bounce": "1"
       }
-    },
-    {
-      "type": "wokwi-servo",
-      "id": "lockerServo4",
-      "top": 310,
-      "left": 430,
-      "attrs": {
-        "horn": "single"
-      }
-    },
-    {
-      "type": "wokwi-pushbutton",
-      "id": "doorButton4",
-      "top": 360,
-      "left": 690,
-      "attrs": {
-        "label": "DOOR 4 CLOSED",
-        "key": "4",
-        "bounce": "1"
-      }
-    },
-    {
-      "type": "board-mfrc522",
-      "id": "rfid1",
-      "top": 765.35,
-      "left": 301.04,
-      "attrs": {
-        "uid": "01:02:03:04"
-      }
-    },
-    {
-      "type": "board-mfrc522",
-      "id": "rfid2",
-      "top": 525.35,
-      "left": 301.04,
-      "attrs": {
-        "uid": "01:02:03:04"
-      }
-    },
-    {
-      "type": "wokwi-servo",
-      "id": "servo1",
-      "top": 670,
-      "left": 604.8,
-      "attrs": {}
     }
   ],
   "connections": [
@@ -181,472 +166,292 @@
       []
     ],
     [
-      "rfid:3.3V",
+      "lockerRfid:3.3V",
       "esp32:3V3",
       "red",
-      [
-        "h0"
-      ]
+      []
     ],
     [
-      "rfid:GND",
+      "lockerRfid:GND",
       "esp32:GND.1",
       "black",
-      [
-        "h508.8",
-        "v317.6"
-      ]
+      []
     ],
     [
-      "rfid:SCK",
+      "lockerRfid:SCK",
       "esp32:18",
       "yellow",
-      [
-        "h576",
-        "v308"
-      ]
+      []
     ],
     [
-      "rfid:MISO",
+      "lockerRfid:MISO",
       "esp32:19",
       "blue",
-      [
-        "h566.4",
-        "v279.2"
-      ]
+      []
     ],
     [
-      "rfid:MOSI",
+      "lockerRfid:MOSI",
       "esp32:23",
       "purple",
-      [
-        "h595.2",
-        "v231.2"
-      ]
+      []
     ],
     [
-      "rfid:SDA",
+      "lockerRfid:SDA",
       "esp32:21",
       "orange",
-      [
-        "h585.6",
-        "v288.8"
-      ]
+      []
     ],
     [
-      "rfid:RST",
+      "lockerRfid:RST",
       "esp32:4",
       "gray",
-      [
-        "h633.6",
-        "v298.4"
-      ]
+      []
+    ],
+    [
+      "doorInRfid:3.3V",
+      "esp32:3V3",
+      "red",
+      []
+    ],
+    [
+      "doorInRfid:GND",
+      "esp32:GND.1",
+      "black",
+      []
+    ],
+    [
+      "doorInRfid:SCK",
+      "esp32:18",
+      "yellow",
+      []
+    ],
+    [
+      "doorInRfid:MISO",
+      "esp32:19",
+      "blue",
+      []
+    ],
+    [
+      "doorInRfid:MOSI",
+      "esp32:23",
+      "purple",
+      []
+    ],
+    [
+      "doorInRfid:SDA",
+      "esp32:22",
+      "orange",
+      []
+    ],
+    [
+      "doorInRfid:RST",
+      "esp32:4",
+      "gray",
+      []
+    ],
+    [
+      "doorOutRfid:3.3V",
+      "esp32:3V3",
+      "red",
+      []
+    ],
+    [
+      "doorOutRfid:GND",
+      "esp32:GND.1",
+      "black",
+      []
+    ],
+    [
+      "doorOutRfid:SCK",
+      "esp32:18",
+      "yellow",
+      []
+    ],
+    [
+      "doorOutRfid:MISO",
+      "esp32:19",
+      "blue",
+      []
+    ],
+    [
+      "doorOutRfid:MOSI",
+      "esp32:23",
+      "purple",
+      []
+    ],
+    [
+      "doorOutRfid:SDA",
+      "esp32:2",
+      "orange",
+      []
+    ],
+    [
+      "doorOutRfid:RST",
+      "esp32:4",
+      "gray",
+      []
+    ],
+    [
+      "lcd:VCC",
+      "esp32:5V",
+      "red",
+      []
+    ],
+    [
+      "lcd:GND",
+      "esp32:GND.2",
+      "black",
+      []
+    ],
+    [
+      "lcd:SDA",
+      "esp32:22",
+      "green",
+      []
+    ],
+    [
+      "lcd:SCL",
+      "esp32:25",
+      "cyan",
+      []
     ],
     [
       "releaseButton:1.l",
       "esp32:33",
       "white",
-      [
-        "h0"
-      ]
+      []
     ],
     [
       "releaseButton:2.l",
-      "esp32:GND.1",
+      "esp32:GND.2",
       "black",
-      [
-        "v57.8",
-        "h398.21"
-      ]
+      []
     ],
     [
       "dht22:VCC",
       "esp32:3V3",
       "red",
-      [
-        "v113.1",
-        "h386.6",
-        "v-479.2"
-      ]
-    ],
-    [
-      "dht22:SDA",
-      "esp32:15",
-      "green",
-      [
-        "v65.1",
-        "h516.26"
-      ]
+      []
     ],
     [
       "dht22:GND",
       "esp32:GND.2",
       "black",
-      [
-        "v45.9",
-        "h521",
-        "v-412"
-      ]
+      []
+    ],
+    [
+      "dht22:SDA",
+      "esp32:15",
+      "green",
+      []
     ],
     [
       "esp32:12",
       "fanResistor:1",
       "red",
-      [
-        "h0"
-      ]
+      []
     ],
     [
       "fanResistor:2",
       "fanLed:A",
       "red",
-      [
-        "v0"
-      ]
+      []
     ],
     [
       "fanLed:C",
       "esp32:GND.2",
       "black",
-      [
-        "v38.4",
-        "h403.6",
-        "v-344.8"
-      ]
+      []
     ],
     [
       "lockerServo1:PWM",
-      "esp32:25",
+      "esp32:26",
       "green",
-      [
-        "h-487.6",
-        "v316.6"
-      ]
+      []
     ],
     [
       "lockerServo1:V+",
       "esp32:5V",
       "red",
-      [
-        "h-506.8",
-        "v422.1"
-      ]
+      []
     ],
     [
       "lockerServo1:GND",
       "esp32:GND.3",
       "black",
-      [
-        "h-305.2",
-        "v316.4"
-      ]
+      []
     ],
     [
       "doorButton1:1.l",
       "esp32:13",
-      "cyan",
-      [
-        "h-670.8",
-        "v380.2"
-      ]
+      "white",
+      []
     ],
     [
       "doorButton1:2.l",
       "esp32:GND.3",
       "black",
-      [
-        "h-565.2",
-        "v284.4"
-      ]
+      []
     ],
     [
       "lockerServo2:PWM",
-      "esp32:26",
+      "esp32:27",
       "green",
-      [
-        "h-439.6",
-        "v136.2"
-      ]
+      []
     ],
     [
       "lockerServo2:V+",
       "esp32:5V",
       "red",
-      [
-        "h-449.2",
-        "v232.1"
-      ]
+      []
     ],
     [
       "lockerServo2:GND",
       "esp32:GND.3",
       "black",
-      [
-        "h-305.2",
-        "v126.4"
-      ]
+      []
     ],
     [
       "doorButton2:1.l",
       "esp32:14",
-      "cyan",
-      [
-        "h-661.2",
-        "v161.4"
-      ]
+      "white",
+      []
     ],
     [
       "doorButton2:2.l",
       "esp32:GND.3",
       "black",
-      [
-        "h-565.2",
-        "v94.4"
-      ]
+      []
     ],
     [
       "lockerServo3:PWM",
-      "esp32:27",
+      "esp32:32",
       "green",
-      [
-        "h-96",
-        "v19.4",
-        "h-340.99"
-      ]
+      []
     ],
     [
       "lockerServo3:V+",
       "esp32:5V",
       "red",
-      [
-        "v0.1",
-        "h-403.2",
-        "v106.4"
-      ]
+      []
     ],
     [
       "lockerServo3:GND",
       "esp32:GND.3",
       "black",
-      [
-        "h-340.84"
-      ]
+      []
     ],
     [
       "doorButton3:1.l",
       "esp32:16",
-      "cyan",
-      [
-        "h-584.4",
-        "v-28.6"
-      ]
+      "white",
+      []
     ],
     [
       "doorButton3:2.l",
       "esp32:GND.3",
       "black",
-      [
-        "h-565.2",
-        "v-95.6"
-      ]
-    ],
-    [
-      "lockerServo4:PWM",
-      "esp32:32",
-      "green",
-      [
-        "h-516.4",
-        "v-272.6"
-      ]
-    ],
-    [
-      "lockerServo4:V+",
-      "esp32:5V",
-      "red",
-      [
-        "h0"
-      ]
-    ],
-    [
-      "lockerServo4:GND",
-      "esp32:GND.3",
-      "black",
-      [
-        "h-305.2",
-        "v-253.6"
-      ]
-    ],
-    [
-      "doorButton4:1.l",
-      "esp32:17",
-      "cyan",
-      [
-        "h-536.4",
-        "v-229",
-        "h-52.84"
-      ]
-    ],
-    [
-      "doorButton4:2.l",
-      "esp32:GND.3",
-      "black",
-      [
-        "h-565.2",
-        "v-285.6"
-      ]
-    ],
-    [
-      "rfid1:RST",
-      "esp32:4",
-      "gray",
-      [
-        "h-134.4",
-        "v-336"
-      ]
-    ],
-    [
-      "esp32:3V3",
-      "rfid1:3.3V",
-      "red",
-      [
-        "h148.99",
-        "v412"
-      ]
-    ],
-    [
-      "rfid1:SCK",
-      "esp32:18",
-      "yellow",
-      [
-        "h-38.4",
-        "v-230.4"
-      ]
-    ],
-    [
-      "rfid1:MISO",
-      "esp32:19",
-      "blue",
-      [
-        "h-201.6",
-        "v-402.4"
-      ]
-    ],
-    [
-      "rfid1:MOSI",
-      "esp32:23",
-      "purple",
-      [
-        "h-172.8",
-        "v-450.4"
-      ]
-    ],
-    [
-      "rfid1:SDA",
-      "esp32:22",
-      "orange",
-      [
-        "h-67.2",
-        "v-230.4"
-      ]
-    ],
-    [
-      "esp32:GND.1",
-      "rfid1:GND",
-      "black",
-      [
-        "h-14.21",
-        "v364"
-      ]
-    ],
-    [
-      "rfid2:SCK",
-      "esp32:18",
-      "yellow",
-      [
-        "h-96",
-        "v-595.2"
-      ]
-    ],
-    [
-      "rfid2:MOSI",
-      "esp32:23",
-      "purple",
-      [
-        "h-172.8",
-        "v-537.6",
-        "v-239.2"
-      ]
-    ],
-    [
-      "rfid2:MISO",
-      "esp32:19",
-      "blue",
-      [
-        "h-201.6",
-        "v-288"
-      ]
-    ],
-    [
-      "rfid2:GND",
-      "esp32:GND.3",
-      "black",
-      [
-        "h-182.4",
-        "v-508"
-      ]
-    ],
-    [
-      "rfid2:RST",
-      "esp32:4",
-      "gray",
-      [
-        "h-134.4",
-        "v-709.6"
-      ]
-    ],
-    [
-      "rfid2:3.3V",
-      "esp32:3V3",
-      "red",
-      [
-        "h-163.2",
-        "v-834.4"
-      ]
-    ],
-    [
-      "rfid2:SDA",
-      "esp32:2",
-      "orange",
-      [
-        "h-9.6",
-        "v-384"
-      ]
-    ],
-    [
-      "servo1:V+",
-      "esp32:5V",
-      "red",
-      [
-        "h0"
-      ]
-    ],
-    [
-      "servo1:GND",
-      "esp32:GND.3",
-      "black",
-      [
-        "h-480",
-        "v-594.4"
-      ]
-    ],
-    [
-      "servo1:PWM",
-      "esp32:5",
-      "green",
-      [
-        "h-38.4",
-        "v-584.6"
-      ]
+      []
     ]
   ],
   "dependencies": {}

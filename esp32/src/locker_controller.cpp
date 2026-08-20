@@ -47,17 +47,12 @@ PendingScan pendingScan;
 int releaseTargetLockerNumber = 0;
 
 bool validLockerNumber(int lockerNumber) {
-    return lockerNumber > 0 &&
-           static_cast<size_t>(lockerNumber) <= HardwareConfig::LOCKER_COUNT;
+    return lockerNumber > 0 && static_cast<size_t>(lockerNumber) <= HardwareConfig::LOCKER_COUNT;
 }
 
-size_t lockerIndex(int lockerNumber) {
-    return static_cast<size_t>(lockerNumber - 1);
-}
+size_t lockerIndex(int lockerNumber) { return static_cast<size_t>(lockerNumber - 1); }
 
-LockerSession& lockerSession(int lockerNumber) {
-    return lockers[lockerIndex(lockerNumber)];
-}
+LockerSession& lockerSession(int lockerNumber) { return lockers[lockerIndex(lockerNumber)]; }
 
 void setLockerState(LockerSession& session, LockerState next) {
     session.state = next;
@@ -97,9 +92,7 @@ bool isDoorClosed(int lockerNumber) {
     return doorInputs[lockerIndex(lockerNumber)].stable == LOW;
 }
 
-bool isDoorOpen(int lockerNumber) {
-    return !isDoorClosed(lockerNumber);
-}
+bool isDoorOpen(int lockerNumber) { return !isDoorClosed(lockerNumber); }
 
 bool releaseButtonPressed(unsigned long now) {
     const bool previous = releaseInput.stable;
@@ -134,11 +127,9 @@ void clearLockerSession(int lockerNumber) {
 }
 
 int findReleaseResponseLocker(const String& cardId) {
-    for (int lockerNumber = 1; lockerNumber <= static_cast<int>(HardwareConfig::LOCKER_COUNT);
-         ++lockerNumber) {
+    for (int lockerNumber = 1; lockerNumber <= static_cast<int>(HardwareConfig::LOCKER_COUNT); ++lockerNumber) {
         const LockerSession& session = lockerSession(lockerNumber);
-        if (session.state == LockerState::WAITING_RELEASE_RESPONSE &&
-            session.cardId == cardId) {
+        if (session.state == LockerState::WAITING_RELEASE_RESPONSE && session.cardId == cardId) {
             return lockerNumber;
         }
     }
@@ -163,8 +154,7 @@ void finishPhysicalSession(int lockerNumber) {
 
 void updateLockerSession(int lockerNumber, unsigned long now) {
     LockerSession& session = lockerSession(lockerNumber);
-    if (session.state == LockerState::IDLE ||
-        session.state == LockerState::WAITING_RELEASE_RESPONSE) {
+    if (session.state == LockerState::IDLE || session.state == LockerState::WAITING_RELEASE_RESPONSE) {
         return;
     }
 
@@ -180,13 +170,11 @@ void updateLockerSession(int lockerNumber, unsigned long now) {
 
         if (now - session.stateStartedAt >= HardwareConfig::DOOR_ACTION_TIMEOUT_MS) {
             if (closed) {
-                Serial.printf("Door #%d was not opened before timeout; locking locker.\n",
-                              lockerNumber);
+                Serial.printf("Door #%d was not opened before timeout; locking locker.\n", lockerNumber);
                 lockLocker(lockerNumber);
                 clearLockerSession(lockerNumber);
             } else if (!session.doorTimeoutWarningLogged) {
-                Serial.printf("Door #%d is still open; waiting without forcing the servo lock.\n",
-                              lockerNumber);
+                Serial.printf("Door #%d is still open; waiting without forcing the servo lock.\n", lockerNumber);
                 session.doorTimeoutWarningLogged = true;
             }
         }
@@ -199,8 +187,7 @@ void updateLockerSession(int lockerNumber, unsigned long now) {
             finishPhysicalSession(lockerNumber);
         } else if (now - session.stateStartedAt >= HardwareConfig::DOOR_ACTION_TIMEOUT_MS &&
                    !session.doorTimeoutWarningLogged) {
-            Serial.printf("Door #%d is still open; waiting without forcing the servo lock.\n",
-                          lockerNumber);
+            Serial.printf("Door #%d is still open; waiting without forcing the servo lock.\n", lockerNumber);
             session.doorTimeoutWarningLogged = true;
         }
     }
@@ -213,16 +200,14 @@ void handleReleaseButton() {
     }
 
     LockerSession& session = lockerSession(releaseTargetLockerNumber);
-    if (session.state != LockerState::WAIT_DOOR_OPEN &&
-        session.state != LockerState::WAIT_DOOR_CLOSE) {
+    if (session.state != LockerState::WAIT_DOOR_OPEN && session.state != LockerState::WAIT_DOOR_CLOSE) {
         Serial.println("Release button ignored: selected locker is not in a door session.");
         return;
     }
 
     if (!session.releasePending) {
         session.releasePending = true;
-        Serial.printf("Release marked pending for Locker #%d; waiting for door close.\n",
-                      releaseTargetLockerNumber);
+        Serial.printf("Release marked pending for Locker #%d; waiting for door close.\n", releaseTargetLockerNumber);
     }
 }
 
@@ -232,8 +217,7 @@ void clearPendingScan() {
     pendingScan.startedAt = 0;
 }
 
-void beginLockerSession(int lockerNumber, const String& cardId, const String& memberName,
-                        const String& action) {
+void beginLockerSession(int lockerNumber, const String& cardId, const String& memberName, const String& action) {
     LockerSession& session = lockerSession(lockerNumber);
     if (session.state != LockerState::IDLE && session.cardId != cardId) {
         Serial.printf("Locker #%d already has an active physical session.\n", lockerNumber);
@@ -252,8 +236,7 @@ void beginLockerSession(int lockerNumber, const String& cardId, const String& me
         DisplayController::showAuthorized(memberName);
     }
 
-    Serial.printf("%s - Locker #%d (%s).\n", memberName.c_str(), lockerNumber,
-                  action.c_str());
+    Serial.printf("%s - Locker #%d (%s).\n", memberName.c_str(), lockerNumber, action.c_str());
     unlockLocker(lockerNumber);
     Serial.printf("Waiting for Door #%d to open.\n", lockerNumber);
     setLockerState(session, LockerState::WAIT_DOOR_OPEN);
@@ -264,8 +247,7 @@ namespace LockerController {
 void begin() {
     for (size_t index = 0; index < HardwareConfig::LOCKER_COUNT; ++index) {
         lockerServos[index].setPeriodHertz(50);
-        lockerServos[index].attach(HardwareConfig::LOCKER_SERVO_PINS[index],
-                                   HardwareConfig::SERVO_MIN_PULSE_US,
+        lockerServos[index].attach(HardwareConfig::LOCKER_SERVO_PINS[index], HardwareConfig::SERVO_MIN_PULSE_US,
                                    HardwareConfig::SERVO_MAX_PULSE_US);
         lockLocker(static_cast<int>(index + 1));
 
@@ -284,27 +266,23 @@ void begin() {
 void update() {
     const unsigned long now = millis();
     for (size_t index = 0; index < HardwareConfig::LOCKER_COUNT; ++index) {
-        updateInput(doorInputs[index],
-                    digitalRead(HardwareConfig::LOCKER_DOOR_SWITCH_PINS[index]), now);
+        updateInput(doorInputs[index], digitalRead(HardwareConfig::LOCKER_DOOR_SWITCH_PINS[index]), now);
     }
 
     if (releaseButtonPressed(now)) {
         handleReleaseButton();
     }
 
-    if (pendingScan.active &&
-        now - pendingScan.startedAt >= HardwareConfig::BACKEND_TIMEOUT_MS) {
+    if (pendingScan.active && now - pendingScan.startedAt >= HardwareConfig::BACKEND_TIMEOUT_MS) {
         Serial.println("Locker backend scan response timed out.");
         clearPendingScan();
     }
 
-    for (int lockerNumber = 1; lockerNumber <= static_cast<int>(HardwareConfig::LOCKER_COUNT);
-         ++lockerNumber) {
+    for (int lockerNumber = 1; lockerNumber <= static_cast<int>(HardwareConfig::LOCKER_COUNT); ++lockerNumber) {
         LockerSession& session = lockerSession(lockerNumber);
         if (session.state == LockerState::WAITING_RELEASE_RESPONSE &&
             now - session.stateStartedAt >= HardwareConfig::BACKEND_TIMEOUT_MS) {
-            Serial.printf("Locker #%d release response timed out; physical locker remains locked.\n",
-                          lockerNumber);
+            Serial.printf("Locker #%d release response timed out; physical locker remains locked.\n", lockerNumber);
             clearLockerSession(lockerNumber);
             continue;
         }
@@ -340,13 +318,11 @@ void handleMqttPayload(const byte* payload, unsigned int length) {
     const int releaseLockerNumber = findReleaseResponseLocker(cardId);
 
     if (action == "release" && releaseLockerNumber != 0) {
-        if (!document["locker_number"].is<int>() ||
-            document["locker_number"].as<int>() != releaseLockerNumber) {
+        if (!document["locker_number"].is<int>() || document["locker_number"].as<int>() != releaseLockerNumber) {
             Serial.println("Ignored invalid locker release response.");
             return;
         }
-        Serial.printf("Locker #%d released successfully; backend ownership cleared.\n",
-                      releaseLockerNumber);
+        Serial.printf("Locker #%d released successfully; backend ownership cleared.\n", releaseLockerNumber);
         DisplayController::showReleased();
         clearLockerSession(releaseLockerNumber);
         return;
@@ -367,8 +343,8 @@ void handleMqttPayload(const byte* payload, unsigned int length) {
         }
     }
 
-    if ((action != "assign" && action != "access") || !pendingScan.active ||
-        cardId != pendingScan.cardId || !document["locker_number"].is<int>()) {
+    if ((action != "assign" && action != "access") || !pendingScan.active || cardId != pendingScan.cardId ||
+        !document["locker_number"].is<int>()) {
         Serial.println("Ignored stale or unrelated locker response.");
         return;
     }
