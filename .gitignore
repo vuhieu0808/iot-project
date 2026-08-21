@@ -178,3 +178,5 @@ firebase-admin-sdk.json
 # esp32
 esp32/.pio
 esp32/.vscode/*
+esp32-rep-counter/.pio
+esp32-rep-counter/.vscode/*

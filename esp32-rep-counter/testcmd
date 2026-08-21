@@ -1,0 +1,1 @@
+mosquitto_pub -h broker.hivemq.com -t "gymtag/repscounter/response" -m '{"machine_id": "CHEST_PRESS_MACHINE", "card_id": "01020304", "weight": 40, "reps": 12}'
