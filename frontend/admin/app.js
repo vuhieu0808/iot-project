@@ -2,15 +2,15 @@
  * GymTag Admin Panel App Controller (With Backend JWT Auth)
  */
 
-import { GymTagAPI } from "../shared/js/api.js?v=5.1";
-import { wsClient } from "../shared/js/websocket.js?v=5.1";
+import { GymTagAPI } from "../shared/js/api.js?v=5.3";
+import { wsClient } from "../shared/js/websocket.js?v=5.3";
 import {
 	formatTime,
 	formatDate,
 	formatDuration,
 	escapeHtml,
 	showToast,
-} from "../shared/js/utils.js?v=5.1";
+} from "../shared/js/utils.js?v=5.3";
 
 let isEditMode = false;
 let cachedMembers = [];
@@ -120,6 +120,7 @@ function setupTabs() {
 					break;
 				case "lockers":
 					loadLockersData();
+					loadLockerLogsData();
 					break;
 				case "logs":
 					loadLogsData();
@@ -132,9 +133,29 @@ function setupTabs() {
 		});
 	});
 
-	// Filter logs handler
+	// Filter logs handlers
 	document.getElementById("btn-filter-logs").addEventListener("click", () => {
 		loadLogsData();
+	});
+
+	// Filter locker logs handlers
+	document.getElementById("btn-filter-locker-logs")?.addEventListener("click", () => {
+		loadLockerLogsData();
+	});
+
+	document.getElementById("btn-refresh-locker-logs")?.addEventListener("click", () => {
+		loadLockerLogsData();
+	});
+
+	document.getElementById("filter-locker-number")?.addEventListener("change", () => {
+		loadLockerLogsData();
+	});
+
+	document.getElementById("filter-locker-card-id")?.addEventListener("keydown", (e) => {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			loadLockerLogsData();
+		}
 	});
 
 	document.getElementById("btn-refresh-env").addEventListener("click", () => {
@@ -183,6 +204,13 @@ function setupWebSocket() {
 			renderAdminLockers(data.lockers);
 		} else {
 			loadLockersData();
+		}
+		if (document.getElementById("tab-lockers")?.classList.contains("active")) {
+			if (data.recent_logs) {
+				renderAdminLockerLogs(data.recent_logs);
+			} else {
+				loadLockerLogsData();
+			}
 		}
 	});
 
@@ -847,15 +875,132 @@ async function loadLockersData() {
 	try {
 		const lockers = await GymTagAPI.getAdminLockers();
 		renderAdminLockers(lockers);
+		loadLockerLogsData();
 	} catch (e) {
 		showToast("Lỗi tải danh sách locker", "error");
 	}
+}
+
+async function loadLockerLogsData() {
+	const selectEl = document.getElementById("filter-locker-number");
+	const lockerNumVal = selectEl ? selectEl.value : "";
+	const cardIdVal = document.getElementById("filter-locker-card-id")?.value.trim() || null;
+
+	let parsedLockerNumber = null;
+	if (lockerNumVal && lockerNumVal !== "") {
+		const num = parseInt(lockerNumVal, 10);
+		if (!isNaN(num) && num > 0) {
+			parsedLockerNumber = num;
+		}
+	}
+
+	try {
+		const logs = await GymTagAPI.getAdminLockerLogs(
+			100,
+			parsedLockerNumber,
+			cardIdVal,
+		);
+		renderAdminLockerLogs(logs || []);
+	} catch (e) {
+		console.error("Error loading locker activity logs:", e);
+	}
+}
+
+function renderAdminLockerLogs(logs) {
+	const tbody = document.getElementById("admin-locker-logs-tbody");
+	if (!tbody || !logs) return;
+
+	if (logs.length === 0) {
+		tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Chưa có nhật ký hoạt động locker nào.</td></tr>`;
+		return;
+	}
+
+	const actionConfig = {
+		assign: { text: "MƯỢN TỦ", badgeClass: "badge-info" },
+		access: { text: "MỞ TỦ", badgeClass: "badge-primary" },
+		release: { text: "TRẢ TỦ", badgeClass: "badge-granted" },
+		force_assign: { text: "FORCE GÁN", badgeClass: "badge-warning" },
+		force_release: { text: "FORCE MỞ", badgeClass: "badge-warning" },
+		status_change: { text: "ĐỔI TRẠNG THÁI", badgeClass: "badge-purple" },
+		denied: { text: "TỪ CHỐI", badgeClass: "badge-denied" },
+	};
+
+	tbody.innerHTML = logs
+		.map((log) => {
+			const isGranted = log.status === "granted";
+			const actionInfo = actionConfig[log.action] || {
+				text: (log.action || "--").toUpperCase(),
+				badgeClass: "badge-secondary",
+			};
+			const resultBadgeClass = isGranted ? "badge-granted" : "badge-denied";
+			const resultText = isGranted ? "THÀNH CÔNG" : "TỪ CHỐI";
+			const timeFormatted = formatTime(log.timestamp);
+			const dateFormatted = formatDate(log.timestamp);
+			const fullTimeDisplay = log.timestamp
+				? `<b>${timeFormatted}</b> <small style="color:var(--text-muted); margin-left:4px;">${dateFormatted}</small>`
+				: "-";
+
+			const lockerBadge = log.locker_number
+				? `<span class="badge badge-secondary" style="font-weight:700;">#${log.locker_number}</span>`
+				: `<span style="color:var(--text-muted);">-</span>`;
+
+			const cardStr = log.card_id
+				? `<code>${escapeHtml(log.card_id)}</code>`
+				: `<span style="color:var(--text-muted);">-</span>`;
+
+			return `
+      <tr>
+        <td>${fullTimeDisplay}</td>
+        <td>${lockerBadge}</td>
+        <td>${cardStr}</td>
+        <td><strong>${escapeHtml(log.member_name || "Unknown")}</strong></td>
+        <td><span class="badge ${actionInfo.badgeClass}">${actionInfo.text}</span></td>
+        <td><span class="badge ${resultBadgeClass}">${resultText}</span></td>
+        <td><small style="color:var(--text-muted);">${escapeHtml(log.reason || "-")}</small></td>
+      </tr>
+    `;
+		})
+		.join("");
+}
+
+function updateLockerFilterOptions(lockers) {
+	const select = document.getElementById("filter-locker-number");
+	if (!select || !lockers) return;
+
+	const currentVal = select.value || "";
+	const existingOptions = Array.from(select.options)
+		.map((opt) => opt.value)
+		.filter((v) => v !== "");
+	const newOptions = lockers.map((l) => String(l.locker_number));
+
+	// If options haven't changed, just preserve selected value without recreating DOM
+	const isSame = existingOptions.length === newOptions.length &&
+		existingOptions.every((v, i) => v === newOptions[i]);
+
+	if (isSame) {
+		select.value = currentVal;
+		return;
+	}
+
+	const isAllSelected = (!currentVal || currentVal === "") ? "selected" : "";
+	const options = [`<option value="" ${isAllSelected}>Tất cả tủ</option>`];
+
+	lockers.forEach((l) => {
+		const num = l.locker_number;
+		const isSelected = currentVal === String(num) ? "selected" : "";
+		options.push(`<option value="${num}" ${isSelected}>Locker #${num}</option>`);
+	});
+
+	select.innerHTML = options.join("");
+	select.value = currentVal;
 }
 
 function renderAdminLockers(lockers) {
 	const container = document.getElementById("admin-locker-grid");
 	const summary = document.getElementById("admin-locker-summary");
 	if (!container || !lockers) return;
+
+	updateLockerFilterOptions(lockers);
 
 	const total = lockers.length;
 	const occupied = lockers.filter(

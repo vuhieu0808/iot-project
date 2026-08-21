@@ -200,6 +200,23 @@ All administrative endpoints require Admin JWT authentication (`Authorization: B
 
 ### 3.3 Locker Management
 - **`GET /api/admin/lockers`**: List all lockers with complete details (status, assigned card ID, timestamp).
+- **`GET /api/admin/lockers/logs`**: Retrieve complete locker activity logs (assign, access, release, force-assign, force-release, status change, denied).
+  - **Query Params**: `limit` (default: 100, max: 500), `locker_number` (optional filter), `card_id` (optional filter).
+  - **Response**: `200 OK`
+    ```json
+    [
+      {
+        "id": "c8a1b2c3-4d5e-6f7a-8b9c-0d1e2f3a4b5c",
+        "locker_number": 1,
+        "card_id": "CARD001",
+        "member_name": "Nguyễn Văn A",
+        "action": "assign",
+        "status": "granted",
+        "reason": "Locker #1 assigned successfully",
+        "timestamp": "2026-08-21T23:45:00.123456"
+      }
+    ]
+    ```
 - **`POST /api/admin/lockers/{locker_number}/force-release`**: Forcibly unlock and clear locker assignment.
 - **`POST /api/admin/lockers/{locker_number}/force-assign`**: Forcibly assign a specific card ID to a locker:
   ```json

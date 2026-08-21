@@ -38,12 +38,12 @@ MQTTMessageHandler._handle_locker_request() route theo operation. LockerService.
 
 ## Firebase, REST và realtime
 
-Firebase lockers/{locker_number} lưu status, is_occupied, card_id, assigned_at. LockerService chỉ ghi ownership vào Firebase; firmware không ghi database trực tiếp.
+Firebase `lockers/{locker_number}` lưu `status`, `is_occupied`, `card_id`, `assigned_at`. Node `locker_logs/{uuid}` lưu toàn bộ lịch sử thao tác mượn/trả/mở tủ/admin can thiệp/từ chối. LockerService ghi ownership và nhật ký vào Firebase; firmware không ghi database trực tiếp.
 
-- Public REST: /api/public/lockers, không trả card_id.
-- User REST: /api/user/me/locker.
-- Admin REST: /api/admin/lockers, force assign/release và status vacant/occupied/broken.
-- WebSocket: admin nhận locker_event có chi tiết; public nhận locker_status_update không có Card ID.
+- Public REST: `/api/public/lockers`, không trả card_id.
+- User REST: `/api/user/me/locker`.
+- Admin REST: `/api/admin/lockers` (danh sách chi tiết), `/api/admin/lockers/logs` (lịch sử hoạt động lọc theo số tủ/mã thẻ), force assign/release và status vacant/occupied/broken.
+- WebSocket: admin nhận `locker_event` có danh sách tủ và log gần nhất; public nhận `locker_status_update` không có Card ID.
 
 ## Sequence
 
@@ -58,7 +58,7 @@ sequenceDiagram
     R->>B: locker request scan + card_id
     B->>H: request
     H->>S: process_locker_scan()
-    S->>F: save occupied locker
+    S->>F: 1. save occupied locker (lockers/)<br/>2. save log entry (locker_logs/)
     H->>B: locker response assign/access
     B->>R: response
     R->>R: LCD + unlock servo n

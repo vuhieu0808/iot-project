@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 from app.models.member import Member
-from app.models.locker import Locker
+from app.models.locker import Locker, LockerLog
 from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog
 
@@ -56,6 +56,21 @@ class BaseRepository(ABC):
     @abstractmethod
     async def get_locker_by_card(self, card_id: str) -> Optional[Locker]:
         """Find locker assigned to specific card_id."""
+        pass
+
+    @abstractmethod
+    async def add_locker_log(self, log: LockerLog) -> LockerLog:
+        """Add locker activity event log entry."""
+        pass
+
+    @abstractmethod
+    async def get_locker_logs(
+        self,
+        limit: int = 50,
+        locker_number: Optional[int] = None,
+        card_id: Optional[str] = None
+    ) -> List[LockerLog]:
+        """Get locker activity logs."""
         pass
 
     # --- Check Log / Occupancy Repository Methods ---

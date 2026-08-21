@@ -60,6 +60,7 @@ Dự án môn học **Vật lý cho Công nghệ Thông tin** — Trường Đ�
 - **🔐 Quản Lý & Giám Sát Locker:**
   - Xem danh sách toàn bộ các tủ Locker, mã thẻ RFID đang giữ tủ, tên thành viên giữ tủ và thời điểm gán.
   - **Mở/Giải phóng Locker thủ công:** Quản trị viên có thể chủ động giải phóng tủ locker bị kẹt hoặc khi khách quên trả tủ.
+  - **📋 Nhật Ký Hoạt Động Locker (Locker Activity Logs):** Xem và tra cứu lịch sử mượn tủ, mở tủ, trả tủ, báo hỏng và can thiệp thủ công từ Admin, lọc theo số tủ hoặc Card ID.
 - **📊 Báo Cáo Lịch Sử Ra Vào (Door Access Logs):** Xem và tra cứu lịch sử check-in / check-out toàn phòng gym, lọc theo Card ID, tên thành viên hoặc kết quả truy cập.
 - **🌡️ Nhật Ký Cảm Biến Môi Trường:** Xem lịch sử ghi nhận biến động nhiệt độ, độ ẩm và nhật ký kích hoạt Relay quạt tự động.
 

@@ -128,3 +128,62 @@ async def test_unknown_card_is_denied(test_repo):
     assert result["action"] == "denied"
     assert result["locker_number"] is None
 
+    # Check that a denied log was created
+    logs = await locker_service.get_locker_logs(limit=10)
+    assert len(logs) == 1
+    assert logs[0].action.value == "denied"
+    assert logs[0].status.value == "denied"
+    assert logs[0].card_id == "UNKNOWN_CARD"
+
+
+@pytest.mark.asyncio
+async def test_locker_logging_flow(test_repo):
+    """Test comprehensive logging for assign, access, release, force-assign, force-release, status change."""
+    from app.models.locker import LockerAction, LockerLogStatus, LockerStatus
+
+    locker_service = LockerService(repository=test_repo)
+    await add_member(test_repo, "CARD_A", "Alice")
+    await add_member(test_repo, "CARD_B", "Bob")
+
+    # 1. Assign
+    await locker_service.process_locker_scan("CARD_A")
+    logs = await locker_service.get_locker_logs(card_id="CARD_A")
+    assert len(logs) == 1
+    assert logs[0].action == LockerAction.ASSIGN
+    assert logs[0].status == LockerLogStatus.GRANTED
+    assert logs[0].locker_number == 1
+    assert logs[0].member_name == "Alice"
+
+    # 2. Access
+    await locker_service.process_locker_scan("CARD_A")
+    logs = await locker_service.get_locker_logs(card_id="CARD_A")
+    assert len(logs) == 2
+    assert logs[0].action == LockerAction.ACCESS
+    assert logs[0].status == LockerLogStatus.GRANTED
+
+    # 3. Release
+    await locker_service.release_locker("CARD_A", 1)
+    logs = await locker_service.get_locker_logs(card_id="CARD_A")
+    assert len(logs) == 3
+    assert logs[0].action == LockerAction.RELEASE
+    assert logs[0].status == LockerLogStatus.GRANTED
+
+    # 4. Admin Force Assign Bob to Locker #2
+    await locker_service.force_assign_locker(2, "CARD_B")
+    bob_logs = await locker_service.get_locker_logs(card_id="CARD_B")
+    assert len(bob_logs) == 1
+    assert bob_logs[0].action == LockerAction.FORCE_ASSIGN
+    assert bob_logs[0].locker_number == 2
+    assert bob_logs[0].member_name == "Bob"
+
+    # 5. Admin Force Release Locker #2
+    await locker_service.force_release_locker(2)
+    locker2_logs = await locker_service.get_locker_logs(locker_number=2)
+    assert locker2_logs[0].action == LockerAction.FORCE_RELEASE
+
+    # 6. Admin Status Change
+    await locker_service.set_locker_status(2, LockerStatus.BROKEN)
+    locker2_logs_updated = await locker_service.get_locker_logs(locker_number=2)
+    assert locker2_logs_updated[0].action == LockerAction.STATUS_CHANGE
+
+

@@ -91,6 +91,26 @@ export const GymTagAPI = {
   },
 
   getAdminLockers: () => request('/api/admin/lockers'),
+  getAdminLockerLogs: (limit = 100, lockerNumber = null, cardId = null) => {
+    let url = `/api/admin/lockers/logs?limit=${limit}`;
+    if (lockerNumber !== null && lockerNumber !== undefined && lockerNumber !== '') {
+      url += `&locker_number=${encodeURIComponent(lockerNumber)}`;
+    }
+    if (cardId) {
+      url += `&card_id=${encodeURIComponent(cardId)}`;
+    }
+    return request(url);
+  },
+  getLockerLogs: (limit = 50, lockerNumber = null, cardId = null) => {
+    let url = `/api/lockers/logs?limit=${limit}`;
+    if (lockerNumber !== null && lockerNumber !== undefined && lockerNumber !== '') {
+      url += `&locker_number=${encodeURIComponent(lockerNumber)}`;
+    }
+    if (cardId) {
+      url += `&card_id=${encodeURIComponent(cardId)}`;
+    }
+    return request(url, { skipAuth: true });
+  },
   forceReleaseLocker: (lockerNumber) => request(`/api/admin/lockers/${lockerNumber}/force-release`, { method: 'POST' }),
   forceAssignLocker: (lockerNumber, cardId) => request(`/api/admin/lockers/${lockerNumber}/force-assign`, {
     method: 'POST',

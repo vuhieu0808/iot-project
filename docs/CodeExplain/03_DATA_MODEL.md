@@ -7,6 +7,7 @@ GymTag dùng Firebase Realtime Database qua `FirebaseRepository`; model là clas
 ```text
 members/{card_id}
 lockers/{locker_number}
+locker_logs/{uuid}
 check_logs/{uuid}
 environment_readings/{uuid}
 settings/environment_thresholds
@@ -28,6 +29,10 @@ Field chính gồm `card_id`, `name`, `email`, `phone`, `membership_expiry`, `is
 
 Quan hệ member–locker chỉ nằm ở `locker.card_id`; `get_locker_by_card()` duyệt locker để tìm chủ.
 
+## LockerLog
+
+Lưu nhật ký hoạt động của tủ Locker: `id`, `locker_number`, `card_id`, `member_name`, `action` (`assign`/`access`/`release`/`force_assign`/`force_release`/`status_change`/`denied`), `status` (`granted`/`denied`), `reason`, `timestamp`.
+
 ## CheckLog
 
 Lưu `id`, `card_id`, `member_name`, `action` (`checkin`/`checkout`), `status` (`granted`/`denied`), `reason`, `duration_minutes`, `timestamp`.
@@ -42,7 +47,9 @@ Lưu `temperature`, `humidity`, `fan_on`, `timestamp`; mỗi reading có UUID ri
 |---|---|---|
 | Tìm member | `get_member(card_id)` | `members/{card_id}` |
 | Lưu locker | `save_locker(locker)` | `lockers/{number}` |
-| Thêm log | `add_check_log(log)` | `check_logs/{uuid}` |
+| Thêm locker log | `add_locker_log(log)` | `locker_logs/{uuid}` |
+| Lấy locker log | `get_locker_logs()` | `locker_logs` |
+| Thêm check log | `add_check_log(log)` | `check_logs/{uuid}` |
 | Thêm reading | `add_environment_reading()` | `environment_readings/{uuid}` |
 | Lưu ngưỡng | `save_environment_thresholds()` | `settings/environment_thresholds` |
 

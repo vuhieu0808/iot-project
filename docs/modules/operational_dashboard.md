@@ -10,7 +10,7 @@ Module tổng hợp trạng thái vận hành cho public/admin: occupancy, locke
 |---|---|---|
 | ESP32 / Hardware | N/A trực tiếp | Dữ liệu đến từ Locker, Environment và future Door modules |
 | Backend | api/routes_public.py, api/websocket.py, main.py | Snapshot REST, WS tiered channels, static mount |
-| Firebase | lockers, check_logs, environment_readings, members | Nguồn dữ liệu tổng hợp |
+| Firebase | lockers, locker_logs, check_logs, environment_readings, members | Nguồn dữ liệu tổng hợp |
 | Frontend | public/app.js, admin/app.js, shared/websocket.js, shared/api.js | Render dashboard và reconnect |
 
 Legacy dashboard tại backend/app/static/dashboard.html cũng dùng REST/WebSocket nhưng không phải primary frontend hiện tại.

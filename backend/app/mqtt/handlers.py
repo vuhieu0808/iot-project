@@ -143,11 +143,13 @@ class MQTTMessageHandler:
 
         # Broadcast full detailed locker event to ADMIN WS clients
         all_lockers = await self.locker_service.get_all_lockers()
+        recent_logs = await self.locker_service.get_locker_logs(limit=20)
         await ws_manager.broadcast_admin({
             "type": "locker_event",
             "data": {
                 "event": result,
-                "lockers": [l.model_dump() for l in all_lockers]
+                "lockers": [l.model_dump() for l in all_lockers],
+                "recent_logs": [log.model_dump() for log in recent_logs],
             }
         })
 

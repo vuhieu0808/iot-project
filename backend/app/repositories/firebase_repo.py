@@ -7,7 +7,7 @@ from datetime import datetime, date
 from typing import List, Optional
 
 from app.models.member import Member
-from app.models.locker import Locker, LockerStatus
+from app.models.locker import Locker, LockerStatus, LockerAction, LockerLogStatus, LockerLog
 from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
 from app.repositories.base import BaseRepository
@@ -196,6 +196,76 @@ class FirebaseRepository(BaseRepository):
             if locker.is_occupied and str(locker.card_id) == str(card_id):
                 return locker
         return None
+
+    # --- Locker Activity Logs Methods ---
+    async def add_locker_log(self, log: LockerLog) -> LockerLog:
+        log_id = log.id or str(uuid.uuid4())
+        timestamp_str = log.timestamp or datetime.now().isoformat()
+        log_to_save = log.model_copy(update={"id": log_id, "timestamp": timestamp_str})
+
+        def _save():
+            data = {
+                "id": log_to_save.id,
+                "locker_number": log_to_save.locker_number,
+                "card_id": str(log_to_save.card_id) if log_to_save.card_id is not None else None,
+                "member_name": log_to_save.member_name,
+                "action": log_to_save.action.value if hasattr(log_to_save.action, "value") else str(log_to_save.action),
+                "status": log_to_save.status.value if hasattr(log_to_save.status, "value") else str(log_to_save.status),
+                "reason": log_to_save.reason,
+                "timestamp": log_to_save.timestamp,
+            }
+            self._ref(f"locker_logs/{log_to_save.id}").set(data)
+
+        await asyncio.to_thread(_save)
+        return log_to_save
+
+    async def get_locker_logs(
+        self,
+        limit: int = 50,
+        locker_number: Optional[int] = None,
+        card_id: Optional[str] = None
+    ) -> List[LockerLog]:
+        def _get():
+            data = self._ref("locker_logs").get()
+            logs = []
+            for item in self._extract_items(data):
+                if isinstance(item, dict) and "action" in item:
+                    item_locker_num = item.get("locker_number")
+                    if locker_number is not None:
+                        if item_locker_num is None or str(item_locker_num) != str(locker_number):
+                            continue
+                    if card_id:
+                        if str(item.get("card_id", "")).strip().lower() != str(card_id).strip().lower():
+                            continue
+
+                    action_str = str(item.get("action", "")).lower()
+                    action = LockerAction(action_str) if action_str in [a.value for a in LockerAction] else LockerAction.ASSIGN
+                    status_str = str(item.get("status", "")).lower()
+                    status = LockerLogStatus(status_str) if status_str in [s.value for s in LockerLogStatus] else LockerLogStatus.GRANTED
+
+                    parsed_locker_num = None
+                    if item_locker_num is not None:
+                        try:
+                            parsed_locker_num = int(item_locker_num)
+                        except (ValueError, TypeError):
+                            parsed_locker_num = None
+
+                    logs.append(
+                        LockerLog(
+                            id=item.get("id"),
+                            locker_number=parsed_locker_num,
+                            card_id=str(item["card_id"]) if item.get("card_id") is not None else None,
+                            member_name=item.get("member_name", "Unknown"),
+                            action=action,
+                            status=status,
+                            reason=item.get("reason"),
+                            timestamp=item.get("timestamp"),
+                        )
+                    )
+            logs.sort(key=lambda x: x.timestamp or "", reverse=True)
+            return logs[:limit]
+
+        return await asyncio.to_thread(_get)
 
     # --- Check Log / Occupancy Methods ---
     async def add_check_log(self, log: CheckLog) -> CheckLog:

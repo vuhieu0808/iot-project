@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List, Optional, Dict
 
 from app.models.member import Member
-from app.models.locker import Locker
+from app.models.locker import Locker, LockerLog
 from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
 from app.repositories.base import BaseRepository
@@ -18,6 +18,7 @@ class InMemoryRepository(BaseRepository):
         self.default_locker_count = default_locker_count
         self.members: Dict[str, Member] = {}
         self.lockers: Dict[int, Locker] = {}
+        self.locker_logs: List[LockerLog] = []
         self.check_logs: List[CheckLog] = []
         self.environment_readings: List[EnvironmentReading] = []
 
@@ -60,6 +61,27 @@ class InMemoryRepository(BaseRepository):
             if locker.is_occupied and locker.card_id == card_id:
                 return locker
         return None
+
+    async def add_locker_log(self, log: LockerLog) -> LockerLog:
+        log_id = log.id or str(uuid.uuid4())
+        timestamp_str = log.timestamp or datetime.now().isoformat()
+        saved = log.model_copy(update={"id": log_id, "timestamp": timestamp_str})
+        self.locker_logs.append(saved)
+        return saved
+
+    async def get_locker_logs(
+        self,
+        limit: int = 50,
+        locker_number: Optional[int] = None,
+        card_id: Optional[str] = None
+    ) -> List[LockerLog]:
+        logs = [
+            l for l in self.locker_logs
+            if (locker_number is None or l.locker_number == locker_number) and
+               (card_id is None or l.card_id == card_id)
+        ]
+        logs.sort(key=lambda x: x.timestamp or "", reverse=True)
+        return logs[:limit]
 
     async def add_check_log(self, log: CheckLog) -> CheckLog:
         log_id = log.id or str(uuid.uuid4())

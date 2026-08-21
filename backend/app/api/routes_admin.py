@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 from app.api.auth import create_admin_token, require_admin
 from app.models.member import Member, MemberCreate
-from app.models.locker import Locker, LockerStatus
+from app.models.locker import Locker, LockerStatus, LockerLog
 from app.models.check_log import CheckLog
 from app.models.environment import EnvironmentReading
 from app.api.websocket import ws_manager
@@ -56,12 +56,14 @@ class ThresholdResponse(BaseModel):
 
 
 async def _broadcast_admin_locker_update(locker_service):
-    """Broadcast updated full lockers to admin WS clients & status to public WS clients."""
+    """Broadcast updated full lockers and logs to admin WS clients & status to public WS clients."""
     all_lockers = await locker_service.get_all_lockers()
+    recent_logs = await locker_service.get_locker_logs(limit=20)
     await ws_manager.broadcast_admin({
         "type": "locker_event",
         "data": {
-            "lockers": [l.model_dump() for l in all_lockers]
+            "lockers": [l.model_dump() for l in all_lockers],
+            "recent_logs": [log.model_dump() for log in recent_logs],
         }
     })
     await ws_manager.broadcast_public({
@@ -112,6 +114,19 @@ async def get_admin_lockers(
     """Retrieve detailed state of all lockers including assigned card_ids (Admin Auth Required)."""
     locker_service = request.app.state.locker_service
     return await locker_service.get_all_lockers()
+
+
+@router.get("/lockers/logs", response_model=List[LockerLog])
+async def get_admin_locker_logs(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500, description="Max history records"),
+    locker_number: Optional[int] = Query(None, description="Optional locker_number filter"),
+    card_id: Optional[str] = Query(None, description="Optional card_id filter"),
+    _: str = Depends(require_admin),
+):
+    """Retrieve complete locker activity logs (Admin Auth Required)."""
+    locker_service = request.app.state.locker_service
+    return await locker_service.get_locker_logs(limit=limit, locker_number=locker_number, card_id=card_id)
 
 
 @router.post("/lockers/{locker_number}/force-release", response_model=Locker)

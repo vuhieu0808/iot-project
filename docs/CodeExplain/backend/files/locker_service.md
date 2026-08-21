@@ -12,15 +12,19 @@ Chứa luật nghiệp vụ cấp, truy cập, trả và quản trị locker; kh
 
 ### `release_locker(card_id, locker_number)`
 
-Xác minh member, quyền sở hữu, số locker và trạng thái occupied; sau đó lưu record vacant đã xóa card/timestamp. Mọi nhánh đều trả dictionary thích hợp cho MQTT.
+Xác minh member, quyền sở hữu, số locker và trạng thái occupied; sau đó lưu record vacant đã xóa card/timestamp. Mọi nhánh đều trả dictionary thích hợp cho MQTT và ghi `LockerLog`.
 
 ### Các phương thức admin
 
-`force_release_locker`, `force_assign_locker`, `set_locker_status` thao tác slot được yêu cầu và ném `ValueError` nếu locker không tồn tại. Chúng trả model `Locker`, không phải dictionary MQTT.
+`force_release_locker`, `force_assign_locker`, `set_locker_status` thao tác slot được yêu cầu, ghi log `LockerLog` (`force_release`, `force_assign`, `status_change`) và ném `ValueError` nếu locker không tồn tại. Chúng trả model `Locker`, không phải dictionary MQTT.
+
+### `get_locker_logs(limit, locker_number, card_id)`
+
+Truy vấn lịch sử tương tác tủ locker từ repository, hỗ trợ lọc theo số tủ và theo mã thẻ RFID.
 
 ## Dependency và lời gọi
 
-MQTT handler và REST route gọi service; service chỉ gọi `BaseRepository` và tạo model `Locker`.
+MQTT handler và REST route gọi service; service gọi `BaseRepository` và tạo các model `Locker`, `LockerLog`. Mọi nhánh scan, release, override đều tự động ghi nhật ký vào node `locker_logs`.
 
 ## Phân biệt quan trọng
 

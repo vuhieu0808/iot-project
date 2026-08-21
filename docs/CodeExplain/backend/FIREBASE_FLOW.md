@@ -20,6 +20,7 @@ flowchart LR
 
 - `members/{card_id}`
 - `lockers/{locker_number}`
+- `locker_logs/{uuid}`
 - `check_logs/{uuid}`
 - `environment_readings/{uuid}`
 - `settings/environment_thresholds`

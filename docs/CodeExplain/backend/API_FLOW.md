@@ -8,6 +8,7 @@ Frontend gọi các endpoint bằng `GymTagAPI` trừ các route cũ/được g�
 |---|---|---|
 | GET | `/api/public/status` | Occupancy và môi trường mới nhất |
 | GET | `/api/public/lockers` | Danh sách locker đã ẩn dữ liệu riêng |
+| GET | `/api/lockers/logs` | Nhật ký hoạt động locker (lọc theo số tủ, mã thẻ) |
 | GET | `/api/logs`, `/api/occupancy` | Log và số người hiện tại |
 | GET | `/api/environment/latest`, `/history` | Reading mới nhất/lịch sử |
 | POST | `/api/environment/fan` | Đổi trạng thái và gửi MQTT |
@@ -31,8 +32,10 @@ Các route `/me/*` dùng `require_user`; các route fallback có `{card_id}` hi�
 | Nhóm endpoint | Chức năng |
 |---|---|
 | `/api/admin/login` | Tạo JWT |
-| `/api/admin/activity` | Lấy log |
-| `/api/admin/lockers...` | Danh sách, force-release/assign, đổi status |
+| `/api/admin/activity` | Lấy log ra vào cửa |
+| `/api/admin/lockers` | Danh sách trạng thái locker chi tiết |
+| `/api/admin/lockers/logs` | Lấy toàn bộ nhật ký hoạt động locker (lọc theo số tủ, mã thẻ) |
+| `/api/admin/lockers...` | Force-release/assign, đổi status |
 | `/api/admin/members...` | CRUD, reset password, toggle active |
 | `/api/admin/environment/history` | Lịch sử môi trường |
 | `/api/admin/environment/fan` | Điều khiển quạt (on/off/auto) qua service + MQTT + WS |

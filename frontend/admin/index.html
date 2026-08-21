@@ -184,12 +184,45 @@
 
         <!-- TAB 3: LOCKERS MANAGEMENT -->
         <section id="tab-lockers" class="tab-pane">
-          <div class="glass-card">
+          <div class="glass-card" style="margin-bottom: 1.5rem;">
             <div class="section-header">
               <h2>🔐 Chi Tiết Khu Vực Locker</h2>
               <span id="admin-locker-summary" class="badge badge-info">--</span>
             </div>
             <div id="admin-locker-grid" class="locker-grid-container"></div>
+          </div>
+
+          <div class="glass-card">
+            <div class="section-header" style="flex-wrap: wrap; gap: 1rem;">
+              <h2>📋 Lịch Sử Hoạt Động Locker</h2>
+              <div class="filter-controls" style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <select id="filter-locker-number" class="form-input" style="width: 140px; cursor: pointer;">
+                  <option value="">Tất cả tủ</option>
+                </select>
+                <input type="text" id="filter-locker-card-id" class="form-input" placeholder="Lọc theo Card ID..." style="width: 170px;">
+                <button id="btn-filter-locker-logs" class="btn btn-secondary btn-sm">🔍 Lọc</button>
+                <button id="btn-refresh-locker-logs" class="btn btn-secondary btn-sm">🔄 Làm mới</button>
+              </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    <th>Số tủ</th>
+                    <th>RFID Card ID</th>
+                    <th>Thành viên</th>
+                    <th>Hành động</th>
+                    <th>Kết quả</th>
+                    <th>Ghi chú / Chi tiết</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-locker-logs-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -431,7 +464,7 @@
   </div>
 
   <!-- JS Scripts -->
-  <script type="module" src="./app.js?v=5.2"></script>
+  <script type="module" src="./app.js?v=5.3"></script>
 </body>
 </html>
 

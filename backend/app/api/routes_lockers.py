@@ -1,9 +1,9 @@
 """REST API routes for locker status and admin control."""
 
-from typing import List
-from fastapi import APIRouter, HTTPException, Request, status
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
-from app.models.locker import Locker, LockerStatus
+from app.models.locker import Locker, LockerStatus, LockerLog
 from app.api.websocket import ws_manager
 
 router = APIRouter(prefix="/api/lockers", tags=["Lockers"])
@@ -20,10 +20,12 @@ class LockerStatusRequest(BaseModel):
 async def _broadcast_locker_update(locker_service):
     """Helper to broadcast updated locker list to WebSocket clients."""
     all_lockers = await locker_service.get_all_lockers()
+    recent_logs = await locker_service.get_locker_logs(limit=20)
     await ws_manager.broadcast({
         "type": "locker_event",
         "data": {
-            "lockers": [l.model_dump() for l in all_lockers]
+            "lockers": [l.model_dump() for l in all_lockers],
+            "recent_logs": [log.model_dump() for log in recent_logs],
         }
     })
 
@@ -33,6 +35,18 @@ async def get_lockers(request: Request):
     """Retrieve status of all gym lockers."""
     locker_service = request.app.state.locker_service
     return await locker_service.get_all_lockers()
+
+
+@router.get("/logs", response_model=List[LockerLog])
+async def get_locker_logs(
+    request: Request,
+    limit: int = Query(50, ge=1, le=500, description="Max history records"),
+    locker_number: Optional[int] = Query(None, description="Optional locker_number filter"),
+    card_id: Optional[str] = Query(None, description="Optional card_id filter"),
+):
+    """Retrieve locker activity logs."""
+    locker_service = request.app.state.locker_service
+    return await locker_service.get_locker_logs(limit=limit, locker_number=locker_number, card_id=card_id)
 
 
 @router.post("/{locker_number}/force-release", response_model=Locker)
