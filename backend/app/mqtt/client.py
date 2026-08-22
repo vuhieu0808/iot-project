@@ -79,6 +79,8 @@ class MQTTClient:
                 (Topics.DOOR_CHECKOUT_REQUEST, 0),
                 (Topics.LOCKER_REQUEST, 0),
                 (Topics.ENVIRONMENT_READING, 0),
+                (Topics.REPS_COUNTER_REQUEST, 0),
+                (Topics.REPS_COUNTER_RESULT, 0),
             ]
             self.client.subscribe(topics_to_subscribe)
             logger.info(f"Subscribed to topics: {[t[0] for t in topics_to_subscribe]}")

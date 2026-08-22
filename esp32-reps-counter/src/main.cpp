@@ -82,9 +82,9 @@ void mqttReconnect() {
     
     if (client.connect(clientId.c_str())) {
       Serial.println(" Connected!");
-      client.subscribe(requestTopic);
+      // client.subscribe(requestTopic);
       client.subscribe(responseTopic);
-      client.subscribe(resultTopic);
+      // client.subscribe(resultTopic);
     } else {
       Serial.printf(" Failed, rc=%d\r\n", client.state());
     }

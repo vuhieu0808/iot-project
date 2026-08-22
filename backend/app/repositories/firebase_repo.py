@@ -393,3 +393,38 @@ class FirebaseRepository:
             self._ref("settings/environment_thresholds").set(data)
             return data
         return await asyncio.to_thread(_save)
+
+    async def add_machine_log(self, machine_id: str, card_id: str, weight: int, reps: int) -> dict:
+        log_id = str(uuid.uuid4())
+        timestamp_str = datetime.now().isoformat()
+        
+        def _save():
+            data = {
+                "id": log_id,
+                "machine_id": machine_id,
+                "card_id": str(card_id),
+                "weight": weight,
+                "reps": reps,
+                "timestamp": timestamp_str,
+            }
+            self._ref(f"machine_logs/{log_id}").set(data)
+            return data
+
+        return await asyncio.to_thread(_save)
+
+    async def get_latest_machine_log(self, machine_id: str, card_id: str) -> Optional[dict]:
+        def _get():
+            data = self._ref("machine_logs").get()
+            user_logs = []
+            
+            for item in self._extract_items(data):
+                if item.get("machine_id") == machine_id and str(item.get("card_id")) == str(card_id):
+                    user_logs.append(item)
+                    
+            if not user_logs:
+                return None
+                
+            user_logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            return user_logs[0]
+            
+        return await asyncio.to_thread(_get)

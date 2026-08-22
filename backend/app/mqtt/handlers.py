@@ -9,6 +9,7 @@ from app.services.access_service import AccessService
 from app.services.locker_service import LockerService
 from app.services.environment_service import EnvironmentService
 from app.services.occupancy_service import OccupancyService
+from app.services.repscounter_service import RepsCounterService
 from app.api.websocket import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -23,12 +24,14 @@ class MQTTMessageHandler:
         locker_service: LockerService,
         environment_service: EnvironmentService,
         occupancy_service: OccupancyService,
+        repscounter_service: RepsCounterService,
         publish_func: Callable[[str, str], None],
     ):
         self.access_service = access_service
         self.locker_service = locker_service
         self.environment_service = environment_service
         self.occupancy_service = occupancy_service
+        self.repscounter_service = repscounter_service
         self.publish = publish_func
 
     async def handle_message(self, topic: str, payload_str: str) -> None:
@@ -48,6 +51,10 @@ class MQTTMessageHandler:
             await self._handle_locker_request(payload)
         elif topic == Topics.ENVIRONMENT_READING:
             await self._handle_environment_reading(payload)
+        elif topic == Topics.REPS_COUNTER_REQUEST:
+            await self._handle_reps_counter_request(payload)
+        elif topic == Topics.REPS_COUNTER_RESULT:
+            await self._handle_reps_counter_result(payload)
         else:
             logger.warning(f"No handler registered for topic: {topic}")
 
@@ -206,4 +213,30 @@ class MQTTMessageHandler:
             "data": update_data
         })
 
+    async def _handle_reps_counter_request(self, payload: Dict[str, Any]) -> None:
+        card_id = payload.get("card_id")
+        machine_id = payload.get("machine_id")
 
+        if not card_id or not machine_id:
+            logger.error("Missing card_id or machine_id in reps request payload.")
+            return
+
+        result = await self.repscounter_service.process_request(card_id, machine_id)
+
+        response_payload = json.dumps(result)
+        
+        self.publish(Topics.REPS_COUNTER_RESPONSE, response_payload) 
+        logger.info(f"Published reps counter response to ESP32: {response_payload}")
+
+    async def _handle_reps_counter_result(self, payload: Dict[str, Any]) -> None:
+        card_id = payload.get("card_id")
+        machine_id = payload.get("machine_id")
+        weight = payload.get("weight", 0)
+        reps = payload.get("reps", 0)
+
+        if not card_id or not machine_id:
+            logger.error("Missing card_id or machine_id in reps result payload.")
+            return
+
+        result = await self.repscounter_service.process_result(card_id, machine_id, weight, reps)
+        logger.info(f"Saved reps counter result for {card_id} on {machine_id}")

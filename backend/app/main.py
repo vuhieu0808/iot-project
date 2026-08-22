@@ -16,6 +16,7 @@ from app.services.access_service import AccessService
 from app.services.locker_service import LockerService
 from app.services.environment_service import EnvironmentService
 from app.services.occupancy_service import OccupancyService
+from app.services.repscounter_service import RepsCounterService
 from app.mqtt.client import MQTTClient
 from app.mqtt.handlers import MQTTMessageHandler
 from app.api import (
@@ -87,6 +88,8 @@ async def lifespan(app: FastAPI):
 
     occupancy_service = OccupancyService(repository=repo)
 
+    repscounter_service = RepsCounterService(repository=repo)
+
     # Attach services to app state for API route access
     app.state.repository = repo
     app.state.access_service = access_service
@@ -109,6 +112,7 @@ async def lifespan(app: FastAPI):
         locker_service=locker_service,
         environment_service=environment_service,
         occupancy_service=occupancy_service,
+        repscounter_service=repscounter_service,
         publish_func=mqtt_client.publish,
     )
 
