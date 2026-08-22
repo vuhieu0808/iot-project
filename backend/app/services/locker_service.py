@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from app.models.locker import Locker, LockerStatus, LockerAction, LockerLogStatus, LockerLog
-from app.repositories.base import BaseRepository
+from app.repositories.firebase_repo import FirebaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class LockerService:
     """Manages locker allocation and release operations."""
 
-    def __init__(self, repository: BaseRepository):
+    def __init__(self, repository: FirebaseRepository):
         self.repository = repository
 
     async def process_locker_scan(self, card_id: str) -> Dict[str, Any]:

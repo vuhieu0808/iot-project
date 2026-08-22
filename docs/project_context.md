@@ -81,7 +81,7 @@ Project2/
 │   │   │   └── websocket.py        # Real-time WebSocket manager
 │   │   ├── models/                 # Pydantic data schemas
 │   │   ├── mqtt/                   # MQTT Client, Handlers & Topics
-│   │   ├── repositories/           # Abstract Base & Firebase RTDB Repo
+│   │   ├── repositories/           # Firebase RTDB Repository
 │   │   ├── services/               # Core business logic services
 │   │   │   ├── access_service.py   # Check-in/out & Member validation
 │   │   │   ├── environment_service.py # DHT22, Dynamic Thresholds & Fan logic

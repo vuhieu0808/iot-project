@@ -1,4 +1,4 @@
-"""Firebase Realtime Database implementation of BaseRepository."""
+"""Firebase Realtime Database repository implementation."""
 
 import asyncio
 import logging
@@ -10,7 +10,6 @@ from app.models.member import Member
 from app.models.locker import Locker, LockerStatus, LockerAction, LockerLogStatus, LockerLog
 from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
-from app.repositories.base import BaseRepository
 
 import firebase_admin
 from firebase_admin import credentials, db
@@ -18,7 +17,7 @@ from firebase_admin import credentials, db
 logger = logging.getLogger(__name__)
 
 
-class FirebaseRepository(BaseRepository):
+class FirebaseRepository:
     """Firebase Realtime Database repository implementation."""
 
     def __init__(

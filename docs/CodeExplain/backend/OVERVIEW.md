@@ -6,7 +6,7 @@
 flowchart LR
     Route[REST/WebSocket route] --> Service[Service]
     Handler[MQTT handler] --> Service
-    Service --> Repo[BaseRepository]
+    Service --> Repo[FirebaseRepository]
     Repo --> Firebase[(Firebase RTDB)]
     Handler --> WS[WebSocket manager]
     Handler --> MQTT[MQTT client]

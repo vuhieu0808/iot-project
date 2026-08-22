@@ -8,11 +8,10 @@ from app.models.member import Member
 from app.models.locker import Locker, LockerLog
 from app.models.environment import EnvironmentReading
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
-from app.repositories.base import BaseRepository
 
 
-class InMemoryRepository(BaseRepository):
-    """In-memory implementation of BaseRepository for testing."""
+class InMemoryRepository:
+    """In-memory repository implementation for testing."""
 
     def __init__(self, default_locker_count: int = 5):
         self.default_locker_count = default_locker_count

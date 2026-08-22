@@ -1,7 +1,7 @@
 """Occupancy tracking service."""
 
 import logging
-from app.repositories.base import BaseRepository
+from app.repositories.firebase_repo import FirebaseRepository
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class OccupancyService:
     """Calculates real-time occupancy within the gym facility."""
 
-    def __init__(self, repository: BaseRepository):
+    def __init__(self, repository: FirebaseRepository):
         self.repository = repository
 
     async def get_current_occupancy(self) -> int:

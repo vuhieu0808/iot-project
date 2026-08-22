@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, Optional
 from app.models.environment import EnvironmentReading
-from app.repositories.base import BaseRepository
+from app.repositories.firebase_repo import FirebaseRepository
 from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ class EnvironmentService:
 
     def __init__(
         self,
-        repository: BaseRepository,
+        repository: FirebaseRepository,
         notification_service: NotificationService,
         temp_threshold: float = 32.0,
         humidity_threshold: float = 80.0,

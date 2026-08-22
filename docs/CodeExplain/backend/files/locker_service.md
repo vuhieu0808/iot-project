@@ -24,7 +24,7 @@ Truy vấn lịch sử tương tác tủ locker từ repository, hỗ trợ lọ
 
 ## Dependency và lời gọi
 
-MQTT handler và REST route gọi service; service gọi `BaseRepository` và tạo các model `Locker`, `LockerLog`. Mọi nhánh scan, release, override đều tự động ghi nhật ký vào node `locker_logs`.
+MQTT handler và REST route gọi service; service gọi `FirebaseRepository` và tạo các model `Locker`, `LockerLog`. Mọi nhánh scan, release, override đều tự động ghi nhật ký vào node `locker_logs`.
 
 ## Phân biệt quan trọng
 

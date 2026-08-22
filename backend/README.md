@@ -27,7 +27,6 @@ backend/
 │   │   ├── occupancy_service.py     # Real-time gym occupancy counter
 │   │   └── notification_service.py  # Telegram Bot API notification client
 │   ├── repositories/
-│   │   ├── base.py                  # Abstract base repository interface
 │   │   └── firebase_repo.py         # Firebase Realtime Database repository
 │   ├── api/
 │   │   ├── routes_members.py        # REST API endpoints for members

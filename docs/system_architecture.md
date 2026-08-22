@@ -88,7 +88,6 @@ The platform coordinates edge microcontrollers (ESP32), an asynchronous Python b
 - **`NotificationService`**: Dispatches formatted HTML alert messages to Telegram chats via Bot API over a dedicated **IPv4 Transport** (bypassing ISP IPv6 blackholes) and supports optional proxy configurations.
 
 ### 3.4 Data & Persistence Layer (`app/repositories/`)
-- **`BaseRepository`**: Abstract base class defining all database interactions.
 - **`FirebaseRepository`**: Production implementation utilizing the Google Firebase Admin Python SDK to persist members, lockers, check logs, environment history, and dynamic threshold configurations in real time.
 - **`InMemoryRepository`**: Test mock implementation used by pytest test suites for fast and isolated unit tests.
 

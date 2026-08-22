@@ -1,9 +1,7 @@
-"""Repository layer abstractions and implementations."""
+"""Repository layer implementations."""
 
-from app.repositories.base import BaseRepository
 from app.repositories.firebase_repo import FirebaseRepository
 
 __all__ = [
-    "BaseRepository",
     "FirebaseRepository",
 ]

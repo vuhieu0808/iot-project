@@ -5,13 +5,13 @@ from datetime import date, datetime
 from typing import Any, Dict
 from app.models.check_log import CheckLog, AccessAction, AccessStatus
 from app.models.member import MemberStatus
-from app.repositories.base import BaseRepository
+from app.repositories.firebase_repo import FirebaseRepository
 
 logger = logging.getLogger(__name__)
 
 
 class AccessService:
-    def __init__(self, repository: BaseRepository):
+    def __init__(self, repository: FirebaseRepository):
         self.repository = repository
 
     async def checkin(self, card_id: str) -> Dict[str, Any]:
